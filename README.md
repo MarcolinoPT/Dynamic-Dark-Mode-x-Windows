@@ -38,7 +38,7 @@ The exact host/guest networking arrangement, connection direction, authenticatio
 - Keep scope focused and avoid speculative infrastructure.
 - Prefer small changes and isolated pull requests.
 - Treat CI and tests as part of implementation, not post-release cleanup.
-- AI reviews are advisory; deterministic checks and human judgement remain important.
+- Greptile and CodeRabbit are planned as complementary advisory PR reviewers; deterministic checks and human judgement remain authoritative.
 - Never report coverage, security or build status unless a real check measures it.
 - No secrets in source control, logs, issues or artifacts.
 - Preserve upstream licence and attribution.
