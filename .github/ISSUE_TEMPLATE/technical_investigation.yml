@@ -1,0 +1,31 @@
+name: Technical investigation
+description: Investigate an architectural or implementation question
+title: "[Investigation]: "
+labels: ["investigation"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do we need to understand or decide?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and constraints
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed investigation
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: A decision, experiment, ADR, or documented recommendation
+    validations:
+      required: true
