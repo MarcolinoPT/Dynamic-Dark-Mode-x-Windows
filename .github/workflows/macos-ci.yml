@@ -60,6 +60,7 @@ jobs:
             -scheme "Dynamic Dark Mode" \
             -configuration Debug \
             -destination 'platform=macOS' \
+            -disableAutomaticPackageResolution \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee xcodebuild-build.log
 
