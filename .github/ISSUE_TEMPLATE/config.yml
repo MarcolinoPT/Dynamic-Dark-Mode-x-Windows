@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Project roadmap
+    url: https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/blob/master/docs/roadmap.md
+    about: Review phases and exit criteria before opening a planning issue.
