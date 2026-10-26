@@ -45,7 +45,7 @@ The exact host/guest networking arrangement, connection direction, authenticatio
 - Document manual acceptance tests that cannot run on hosted CI.
 
 ## Roadmap
-Track work in [GitHub Issues](https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/issues) and the GitHub Projects board (to be configured).
+Track work in [GitHub Issues](https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/issues) and the [GitHub Projects board](https://github.com/users/MarcolinoPT/projects) (to be configured).
 
 1. **M0 — Foundation:** source/target discovery, reproducible baseline build, repository governance and initial regression notes.
 2. **M1 — Engineering baseline:** macOS and Windows CI, test scaffolding, linting and PR conventions.
