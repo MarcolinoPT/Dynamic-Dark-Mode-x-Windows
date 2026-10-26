@@ -76,8 +76,9 @@ This is the planning source of truth for phases and exit criteria. GitHub Projec
 
 ## M6 — Maintenance and polish
 
-- Enable Greptile AI reviews and tune for useful, low-noise feedback.
-- Keep AI review advisory; it never substitutes for CI or human judgement.
+- Configure both Greptile and CodeRabbit as complementary AI reviewers and tune for useful, low-noise feedback.
+- Keep both AI reviews advisory; they never substitute for deterministic CI or human judgement.
+- Review overlapping findings and false positives after several pull requests.
 - Add dependency automation and scheduled health checks where useful.
 - Review community feedback and backlog.
 - Consider independent clients only when there is a concrete need.
