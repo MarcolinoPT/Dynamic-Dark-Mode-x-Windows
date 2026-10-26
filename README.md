@@ -1,52 +1,69 @@
-# Dynamic Dark Mode
+# Dynamic Dark Mode × Windows
 
-*Dynamic Dark Mode* is the app you are looking for to power up Dark Mode on macOS Big Sur and beyond.
+A focused side project to synchronise the appearance of a macOS host with its Windows 11 VM.
 
-Instead of looking for the switch for dark mode in System Preferences, just click the icon in the menu bar. Ever felt your eyes getting hurt because the screen is so bright in the night? Have to worry no more, we Dynamically enable dark mode in dim lights, after sunset, or just anytime. When you wake up in the morning, it'll a be another bright day.
+> **Project goal:** macOS is the source of truth. When macOS switches between Light and Dark appearance, the Windows VM follows automatically.
 
-![Settings for Dynamic Dark Mode](https://github.com/user-attachments/assets/e9551a97-e7f2-49ab-a93a-2701a75e6095)
+This project builds on the Apple Silicon-compatible [Dynamic Dark Mode](https://github.com/threadMapperX/Dynamic-Dark-Mode) fork and retains attribution to the original authors. See [LICENSE](LICENSE) for the applicable GPL terms.
 
-## License
+## Scope
 
-```
-Dynamic Dark Mode - the smart, automatic Dark Mode toggle for macOS
-Copyright (C) 2018-2021 Zhiyu Zhu (@ApolloZhu)
+### First release
+- One macOS host synchronising with one Windows VM.
+- One-way theme synchronisation: macOS → Windows.
+- Preserve Dynamic Dark Mode's existing scheduling and manual appearance features.
+- Reconnect after VM suspend/resume or temporary network loss.
+- No cloud service or external account required.
+- A small Windows companion that runs in the user's session.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+### Deliberately out of scope for the first release
+- Multiple Windows clients or arbitrary LAN computers.
+- Reverse synchronisation from Windows to macOS.
+- Cloud relay, remote access or hosted infrastructure.
+- Reimplementing sunrise/sunset calculations in Windows.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+### Long-term design commitment: open protocol
+The synchronisation protocol should be documented and independently implementable so that alternative clients could be created later. The first implementation only needs to support this project's macOS sender and Windows VM receiver. Protocol openness and multi-client support are future design considerations, not first-release requirements.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-```
+## Architecture
+- **macOS:** Swift / existing Dynamic Dark Mode app.
+- **Windows:** C# / .NET companion.
+- **Transport candidate:** local WebSocket connection, subject to discovery and security review.
+- **Authority:** the current effective macOS appearance.
+- **Reliability:** send current state on connection; tolerate duplicate state messages; reconnect with bounded backoff.
 
-## Alternatives
+The exact host/guest networking arrangement, connection direction, authentication and macOS appearance-observation mechanism must be validated during discovery before implementation.
 
-This is not quite what you are looking for? Here's a non-comprehensive list of options you could try:
+## Engineering principles
+- Keep scope focused and avoid speculative infrastructure.
+- Prefer small changes and isolated pull requests.
+- Treat CI and tests as part of implementation, not post-release cleanup.
+- AI reviews are advisory; deterministic checks and human judgement remain important.
+- Never report coverage, security or build status unless a real check measures it.
+- No secrets in source control, logs, issues or artifacts.
+- Preserve upstream licence and attribution.
+- Document manual acceptance tests that cannot run on hosted CI.
 
-|                                                              | Daylight Schedule | Custom Schedule | Ambient Light | Touch Bar | Shortcut Key | Menu Bar | CLI  | Per App | Localized |
-| ------------------------------------------------------------ | ----------------------- | --------------- | ------------- | ------------------------------------------------------------ | ------------ | -------- | ---- | ------- | --------- |
-| [macOS Dark Mode, Auto](https://support.apple.com/en-us/HT208976) | ✅                       |                 |               |  |              |          |      |         | ✅         |
-| Dynamic Dark Mode                                            | ✅                       | ✅               | ✅*            | ✅ | ✅            | ✅        |      |         | ✅ |
-| [NightOwl](https://nightowl.kramser.xyz/)                    | ✅                       | ✅               |               |  | ✅            | ✅        |      | ✅       |           |
-| [DarkModeBuddy](https://gumroad.com/l/darkmodebuddy)         |                         |                 | ✅             |  |              |          |      |         |           |
-| [DarkLight](https://github.com/L1cardo/DarkLight) | | | | ✅ | ✅ | | | | |
-| [Nocturnal](https://github.com/HarshilShah/Nocturnal)        |                         |                 |               |  |              | ✅        |      |         |           |
-| [darkmode](https://github.com/katernet/darkmode) by katernet | ✅ | ✅ | | | | | ✅ | | |
-| [dark-mode](https://github.com/sindresorhus/dark-mode) by sindresorhus |                         |                 |               |  |              |          | ✅    |         |           |
-| [Gray](https://github.com/zenangst/Gray)                     |                         |                 |               |  |              |          |      | ✅       | ✅ |
-| [f.lux](https://justgetflux.com/) (night shift)        | ✅                       | ✅               |               |  |              |          |      |         |          |
-| [Shifty](https://shifty.natethompson.io) (Night Shift) | ✅                       | ✅               |               |  |              |          |      |         | ✅         |
-| [Irvu‪e‬](https://apps.apple.com/app/id1039633667) (wallpaper) |                         |                 |               |  | ✅ | ✅ |      |         |           |
-| [One Switch](https://fireball.studio/oneswitch/) (multi-tool) |                         |                 |               |  |              | ✅        |      |         | ✅ |
+## Roadmap
+Track work in [GitHub Issues](https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/issues) and the GitHub Projects board (to be configured).
 
-> \* Dynamic Dark Mode uses screen brightness, and requires "Automatically adjust brightness" option enabled in System Preferences for ambient light based changes, does not work on Apple Silicon (for now)
+1. **M0 — Foundation:** source/target discovery, reproducible baseline build, repository governance and initial regression notes.
+2. **M1 — Engineering baseline:** macOS and Windows CI, test scaffolding, linting and PR conventions.
+3. **M2 — Sync prototype:** documented protocol, safe local transport and isolated proof of concept.
+4. **M3 — Windows integration:** theme application, startup, reconnect and failure handling.
+5. **M4 — End-to-end sync:** integrate sender, preferences and full VM tests.
+6. **M5 — First public release:** documentation, packaging, signing decision, release workflow and acceptance evidence.
+7. **M6 — Maintenance and polish:** badges, AI review, dependency maintenance and post-release fixes.
 
----
+Phases are sequential gates rather than dates. A phase is complete only when its acceptance criteria are met.
 
+## Development status
+**Current phase: M0 — Foundation.** No synchronisation implementation has been started in this repository yet.
+
+## Project documentation
+- [Detailed roadmap](docs/roadmap.md)
+- [Ideas and future possibilities](docs/ideas.md)
+- [Architecture decision: project scope](docs/decisions/0001-project-scope.md)
+- [Contribution guidelines](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
