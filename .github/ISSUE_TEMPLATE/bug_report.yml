@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Please search existing issues before creating a new report."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, Windows version, VM configuration, and app version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove secrets and personal information before sharing.
+    validations:
+      required: false
