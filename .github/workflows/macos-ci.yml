@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Select Ruby for CocoaPods
-        uses: ruby/setup-ruby@ec02537da5712d66d4d50a0f33b7eb52773b5ed1 # v1
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
 
