@@ -53,7 +53,7 @@ No timestamp or sequence number is required in v1. The message represents **curr
 2. **Change notification:** when the effective macOS appearance changes, the sender sends the new state.
 3. **Idempotency:** applying the same appearance more than once must have the same result as applying it once. Receivers must tolerate duplicate state messages.
 4. **Reconnect/resynchronisation:** after a disconnect or reconnect (including VM resume or network recovery), the sender sends a fresh current-state snapshot. It does not need to replay missed transitions.
-5. **Ordering:** the sender must serialize appearance updates and send them in state-change order. The selected transport must preserve message order for a single connection, or the receiver must use an explicitly defined mechanism to reject stale updates before applying them. V1 does not currently define sequence numbers, so transports or implementations that can reorder messages must provide another documented way to enforce freshness; they must not apply an older state after a newer one. After reconnect, the sender sends a fresh snapshot and does not replay queued pre-disconnect updates.
+5. **Ordering:** the sender must serialize appearance updates and send them in state-change order. V1 may use only a transport that preserves message order on a single connection; transports that can reorder messages are not supported. After reconnect, the sender sends a fresh current-state snapshot and does not replay queued pre-disconnect updates.
 6. **One-way authority:** the Windows receiver does not originate appearance changes for the Mac.
 
 ## Validation and failure behaviour
@@ -102,5 +102,5 @@ A v1 sender/receiver pair should demonstrate:
 - [ ] Rejected messages do not change appearance.
 - [ ] Applying a duplicate message is harmless.
 - [ ] The sender transmits current state on initial connection and after reconnect, without replaying stale queued updates.
-- [ ] Updates are sent in state-change order and the receiver cannot apply an older state after a newer one, including when the chosen transport can reorder messages.
+- [ ] The transport preserves message order on a single connection, updates are sent in state-change order, and reconnect sends a fresh current-state snapshot without replaying queued pre-disconnect updates.
 - [ ] A compatible implementation can be written using this document without relying on private application details.
