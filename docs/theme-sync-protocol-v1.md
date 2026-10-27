@@ -58,9 +58,9 @@ No timestamp or sequence number is required in v1. The message represents **curr
 
 ## Validation and failure behaviour
 
-A receiver must validate a message before changing the Windows appearance.
+A receiver must validate a message before changing the Windows appearance. It must detect and reject duplicate JSON member names at every object level before validating fields; this rule must not depend on the JSON parser's default duplicate-name behaviour.
 
-- Reject messages that are not valid UTF-8 JSON objects.
+- Reject messages that are not valid UTF-8 JSON objects or contain duplicate JSON member names.
 - Reject a missing or incorrectly typed required field.
 - Reject a message containing any field not listed in the v1 message format; v1 does not allow optional or unknown fields.
 - Reject an unexpected `protocol` identifier.
@@ -98,6 +98,7 @@ The first release remains one Mac host → one Windows VM, local and cloud-free.
 A v1 sender/receiver pair should demonstrate:
 
 - [ ] Both example messages parse and represent the expected appearance.
+- [ ] Duplicate JSON member names are rejected before field validation, including repeated `appearance` members regardless of parser behaviour.
 - [ ] Missing fields, wrong JSON types, unknown/additional fields, wrong protocol identifier, unsupported version/type, and invalid appearance values are rejected.
 - [ ] Rejected messages do not change appearance.
 - [ ] Applying a duplicate message is harmless.
