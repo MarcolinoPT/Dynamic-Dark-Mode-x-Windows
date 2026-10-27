@@ -14,7 +14,7 @@ V1 does not define multiple clients, discovery, arbitrary LAN access, cloud rela
 
 ## Message format
 
-Messages are UTF-8 JSON objects. A v1 state message has exactly these required fields:
+Messages are UTF-8 JSON objects. A v1 state message must contain exactly the four fields listed below. **Unknown fields are not allowed**: receivers must reject a message containing any additional field, including optional metadata. This keeps v1 validation unambiguous; adding fields requires an explicitly versioned protocol change.
 
 | Field | Type | Required value / meaning |
 | --- | --- | --- |
@@ -62,6 +62,7 @@ A receiver must validate a message before changing the Windows appearance.
 
 - Reject messages that are not valid UTF-8 JSON objects.
 - Reject a missing or incorrectly typed required field.
+- Reject a message containing any field not listed in the v1 message format; v1 does not allow optional or unknown fields.
 - Reject an unexpected `protocol` identifier.
 - Reject an unsupported `version`; do not guess at compatibility.
 - Reject an unsupported `type` or an `appearance` value other than `light` or `dark`.
@@ -97,7 +98,7 @@ The first release remains one Mac host → one Windows VM, local and cloud-free.
 A v1 sender/receiver pair should demonstrate:
 
 - [ ] Both example messages parse and represent the expected appearance.
-- [ ] Missing fields, wrong JSON types, wrong protocol identifier, unsupported version/type, and invalid appearance values are rejected.
+- [ ] Missing fields, wrong JSON types, unknown/additional fields, wrong protocol identifier, unsupported version/type, and invalid appearance values are rejected.
 - [ ] Rejected messages do not change appearance.
 - [ ] Applying a duplicate message is harmless.
 - [ ] The sender transmits current state on initial connection and after reconnect, without replaying stale queued updates.
