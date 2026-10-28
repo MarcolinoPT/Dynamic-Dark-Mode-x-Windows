@@ -1,29 +1,60 @@
-# Theme Sync Protocol v1 (Draft)
+# Theme Sync Protocol v1
 
-- **Status:** Draft for review
+- **Status:** Proposed for review; not production-ready until open implementation decisions are resolved.
 - **Related issue:** [#8 — Specify an open, versioned theme-sync protocol](https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/issues/8)
-- **Scope:** Transport-neutral application message contract for one-way macOS → Windows appearance synchronisation.
+- **Protocol identifier:** `dynamic-dark-mode-sync`
+- **Version:** `1`
+- **Scope:** One macOS host sends its effective Light/Dark appearance to one paired Windows VM. No cloud, relay, discovery, multi-client hosting, Windows-to-Mac commands, schedules, wallpaper or event history.
 
-This draft defines the smallest useful v1 contract. It does **not** select a transport or define connection authentication, pairing, port binding, or the network threat model; those decisions belong in the networking/security ADR tracked by issue #9.
+## 1. Roles and authority
 
-## Goals and non-goals
+The macOS app is the sole authority for desired appearance. The Windows companion receives and applies the state for the current Windows user. Windows does not send appearance state back. While disconnected, Windows retains its last successfully applied state.
 
-V1 carries the current effective macOS appearance to one Windows VM. macOS is authoritative. The Windows receiver applies the received state; it does not send appearance changes back.
+Keep protocol parsing, transport, macOS appearance observation and Windows theme application behind separately testable boundaries. Existing scheduling, wallpaper, brightness, shortcut, Touch Bar and launcher behaviour must remain independent.
 
-V1 does not define multiple clients, discovery, arbitrary LAN access, cloud relays, remote access, scheduling, or sunrise/sunset calculations.
+## 2. Proposed transport
 
-## Message format
+Use TCP protected by TLS 1.3, subject to validating compatibility with supported OS versions and confirming host-to-guest reachability in Parallels Shared Network mode.
 
-Messages are UTF-8 JSON objects. A v1 state message must contain exactly the four fields listed below. **Unknown fields are not allowed**: receivers must reject a message containing any additional field, including optional metadata. This keeps v1 validation unambiguous; adding fields requires an explicitly versioned protocol change.
+- macOS initiates the connection; Windows listens on a configurable port.
+- Bind the listener to the intended Parallels interface where feasible, not indiscriminately to every interface.
+- Restrict inbound access with Windows Firewall as far as the actual network topology permits.
+- Do not treat a private IP, port number or Shared Network as authentication.
+- No plaintext fallback, automatic LAN discovery, cloud relay or arbitrary LAN clients in v1.
 
-| Field | Type | Required value / meaning |
-| --- | --- | --- |
-| `protocol` | string | `dynamic-dark-mode-sync` |
-| `version` | integer | `1` |
-| `type` | string | `appearance.set` |
-| `appearance` | string | `light` or `dark`, representing the current effective macOS appearance |
+### 2.1 Framing
 
-Example — dark appearance:
+TCP is a byte stream. Each message is framed as a 4-byte unsigned payload length in network byte order (big-endian), followed by exactly that many UTF-8 JSON bytes. The length excludes the prefix.
+
+Reject zero-length payloads and lengths above 4096 bytes before allocating or parsing. Reject truncated frames and malformed UTF-8. Use bounded read/write loops; a socket read or write is not guaranteed to transfer a complete frame.
+
+## 3. Pairing and authentication
+
+Pairing is an explicit local setup flow. No credentials are sent to cloud services.
+
+1. The Windows receiver creates or obtains its TLS server certificate and displays its fingerprint locally.
+2. The user verifies/transfers that fingerprint to the Mac through the pairing UI. The Mac pins the expected certificate identity. Never silently trust a certificate merely because it was presented over the network.
+3. Windows generates a cryptographically random 256-bit pairing secret.
+4. The user transfers the secret to the Mac through an explicit local setup step. Never transfer it over an unverified connection, put it in a URL or command-line argument, or log it.
+5. Store the secret in macOS Keychain on the Mac and protect the Windows copy using DPAPI for the appropriate user.
+6. The Mac establishes TLS, validates the pinned certificate, then authenticates using the pairing secret inside the encrypted channel. Windows must authenticate each new connection before accepting appearance messages. Compare secrets in constant time where supported.
+7. Pairing succeeds only after authentication is confirmed.
+
+The secret authorizes the sender; certificate pinning authenticates the receiver. Neither replaces the other. Use platform TLS/crypto libraries; do not invent cryptographic primitives.
+
+### 3.1 Lifecycle and failure
+
+- Revoke pairing explicitly on either side; delete stored credentials and stop sync until paired again.
+- Re-pairing generates a new secret; never reuse revoked credentials.
+- A missing, invalid or changed pinned certificate fails closed and requires explicit re-pairing/renewal. Never silently accept a replacement.
+- Missing/unavailable credential storage fails closed.
+- Rate-limit repeated failed authentication attempts and close unauthenticated connections.
+- Never log secrets, private keys or raw credential material.
+- TLS plus pinning and pairing does not protect against a compromised endpoint or an attacker who controls the paired user's account and credentials. Firewall restrictions are defence in depth, not authentication.
+
+## 4. Message format
+
+Messages are UTF-8 JSON objects. V1 state messages contain exactly the four fields below; unknown fields are rejected. Adding fields requires an explicitly reviewed protocol change. Duplicate JSON member names must be detected and rejected before field validation; do not rely on a parser's default behaviour.
 
 ```json
 {
@@ -34,74 +65,106 @@ Example — dark appearance:
 }
 ```
 
-Example — light appearance:
+| Field | Type | Rule |
+| --- | --- | --- |
+| `protocol` | string | Exactly `dynamic-dark-mode-sync` |
+| `version` | integer | Exactly `1`; JSON booleans are not accepted as integers |
+| `type` | string | Exactly `appearance.set` |
+| `appearance` | string | Exactly `light` or `dark` |
+
+The message describes current state, not a historical event. No timestamp or sequence number is required in v1.
+
+## 5. State and acknowledgements
+
+- Send current state immediately after authentication and whenever effective macOS appearance changes while sync is enabled.
+- Applying the same state repeatedly must be harmless; avoid unnecessary Windows setting writes.
+- Send updates in order on one connection. Send one appearance message at a time and wait for its acknowledgement before sending the next.
+- The receiver acknowledges a valid, authenticated state message only after successfully handling it. Acknowledgement means the receiver handled the setting, not that every app has repainted.
+- Proposed success acknowledgement:
 
 ```json
 {
   "protocol": "dynamic-dark-mode-sync",
   "version": 1,
-  "type": "appearance.set",
-  "appearance": "light"
+  "type": "ack",
+  "status": "applied",
+  "appearance": "dark"
 }
 ```
 
-No timestamp or sequence number is required in v1. The message represents **current state**, not an event that must be replayed in order.
+- Proposed failure acknowledgement for a valid, authenticated message that could not be applied:
 
-## State and delivery semantics
+```json
+{
+  "protocol": "dynamic-dark-mode-sync",
+  "version": 1,
+  "type": "ack",
+  "status": "error",
+  "code": "apply_failed"
+}
+```
 
-1. **Initial snapshot:** when a connection becomes usable, the sender sends the current effective appearance, even if it has not changed recently.
-2. **Change notification:** when the effective macOS appearance changes, the sender sends the new state.
-3. **Idempotency:** applying the same appearance more than once must have the same result as applying it once. Receivers must tolerate duplicate state messages.
-4. **Reconnect/resynchronisation:** after a disconnect or reconnect (including VM resume or network recovery), the sender sends a fresh current-state snapshot. It does not need to replay missed transitions.
-5. **Ordering:** the sender must serialize appearance updates and send them in state-change order. V1 may use only a transport that preserves message order on a single connection; transports that can reorder messages are not supported. After reconnect, the sender sends a fresh current-state snapshot and does not replay queued pre-disconnect updates.
-6. **One-way authority:** the Windows receiver does not originate appearance changes for the Mac.
+A duplicate state may be acknowledged as `applied` if it is already active. Error codes must be machine-readable and contain no secrets. Initial codes: `apply_failed`, `temporarily_unavailable`. Malformed or unauthenticated messages receive no protocol acknowledgement; close the connection.
 
-## Validation and failure behaviour
+## 6. Reconnection and sync preference
 
-A receiver must validate a message before changing the Windows appearance. It must detect and reject duplicate JSON member names at every object level before validating fields; this rule must not depend on the JSON parser's default duplicate-name behaviour.
+- Either component may start first.
+- On disconnect, reconnect with bounded exponential backoff and jitter.
+- After reconnect, repeat TLS validation and sender authentication, then send the latest current state.
+- Do not queue or replay historical transitions while disconnected.
+- On VM suspend/resume, host network changes or receiver restart, the system must eventually reconnect and resynchronise without manual intervention.
+- Disabling sync stops updates and closes the connection. Re-enabling sync reconnects and sends current state.
+- If an acknowledgement times out, close/reconnect and resend current state; duplicate application is safe.
+- If Windows cannot apply a valid state, report failure rather than falsely acknowledging success. Do not require administrator privileges solely to change the current user's theme.
 
-- Reject messages that are not valid UTF-8 JSON objects or contain duplicate JSON member names.
-- Reject a missing or incorrectly typed required field.
-- Reject a message containing any field not listed in the v1 message format; v1 does not allow optional or unknown fields.
-- Reject an unexpected `protocol` identifier.
-- Reject an unsupported `version`; do not guess at compatibility.
-- Reject an unsupported `type` or an `appearance` value other than `light` or `dark`.
-- A rejected message must not change the current Windows appearance.
-- Parsing or validation failures must not crash the receiver. Diagnostic logging should avoid dumping arbitrary untrusted payloads.
-- Transport errors, connection closure, and reconnect scheduling are handled by the transport/implementation layer; reconnect must trigger a fresh snapshot.
+## 7. Validation and compatibility
 
-This draft intentionally does not define a wire-level error response or acknowledgement. TCP delivery alone does not prove that the receiver parsed or applied a message. If application-level acknowledgement becomes necessary, specify it explicitly before adding it to v1.
+Reject before changing Windows appearance if any of the following occurs:
 
-## Compatibility and evolution
+- invalid UTF-8, malformed/non-object JSON, duplicate member names, truncated/zero-length/oversized frame;
+- missing field, wrong type, additional field, wrong protocol identifier;
+- unsupported version, unsupported message type or invalid appearance value;
+- TLS certificate verification or sender authentication failure.
 
-- The `version` field identifies the protocol contract, not the application release.
-- A receiver that does not support version 1 must reject it without changing appearance.
-- Incompatible changes require a new protocol version.
-- New message types or values are not implicitly supported by v1.
-- Implementations must not infer an appearance from absent or invalid fields.
+Unsupported versions are rejected; there is no silent downgrade. Incompatible changes require a new protocol version. Invalid input must not crash the receiver or cause a default appearance to be applied. Avoid logging arbitrary untrusted payloads.
 
-## Transport and security boundary
+## 8. Conformance tests
 
-The message contract is transport-neutral. A local WebSocket remains a candidate, not a decision made by this document.
+### Message and framing
+- [ ] Valid `light` and `dark` messages.
+- [ ] Missing/wrongly typed fields, extra fields, wrong protocol identifier, unsupported version/type and invalid appearance rejected.
+- [ ] Duplicate JSON member names rejected, including repeated `appearance`.
+- [ ] Boolean `version`, malformed JSON, invalid UTF-8, zero-length, oversized and truncated frames rejected.
+- [ ] Rejected messages never change Windows appearance.
 
-Before production networking is implemented, the project must record in an ADR:
-- connection direction and host/guest network assumptions;
-- bind address and exposure limits;
-- how an untrusted local process is prevented from changing the guest appearance;
-- whether pairing or authentication is required;
-- firewall implications and behaviour when the VM is stopped, suspended, or its address changes.
+### Security
+- [ ] Sender rejects unpinned or changed receiver certificate.
+- [ ] Pairing secret is never sent before certificate verification.
+- [ ] Unauthenticated, incorrect-secret and revoked senders cannot update appearance.
+- [ ] Failed authentication is rate-limited and secrets never appear in logs.
+- [ ] No plaintext fallback.
 
-The first release remains one Mac host → one Windows VM, local and cloud-free. Do not interpret “local” or “Shared Networking” as authentication.
+### State and lifecycle
+- [ ] Initial state sent after authentication; duplicates are harmless.
+- [ ] Current state sent after change and after reconnect; no stale queued transitions replayed.
+- [ ] Start-order, timeout, disconnect, VM suspend/resume and transient network recovery work.
+- [ ] Disabling sync stops updates; enabling sync sends current state.
+- [ ] Apply failure is reported and not acknowledged as success.
 
-## Conformance checklist
+### Environment
+- [ ] Verify Shared Network host-to-guest reachability, stable/configurable endpoint, listener binding and firewall behaviour.
+- [ ] Record tested macOS, Windows and Parallels versions.
+- [ ] Verify current-user theme changes without unnecessary elevation.
 
-A v1 sender/receiver pair should demonstrate:
+## 9. Open implementation decisions
 
-- [ ] Both example messages parse and represent the expected appearance.
-- [ ] Duplicate JSON member names are rejected before field validation, including repeated `appearance` members regardless of parser behaviour.
-- [ ] Missing fields, wrong JSON types, unknown/additional fields, wrong protocol identifier, unsupported version/type, and invalid appearance values are rejected.
-- [ ] Rejected messages do not change appearance.
-- [ ] Applying a duplicate message is harmless.
-- [ ] The sender transmits current state on initial connection and after reconnect, without replaying stale queued updates.
-- [ ] The transport preserves message order on a single connection, updates are sent in state-change order, and reconnect sends a fresh current-state snapshot without replaying queued pre-disconnect updates.
-- [ ] A compatible implementation can be written using this document without relying on private application details.
+The proof of concept must validate these before v1 is considered production-ready:
+
+1. Exact port and how to configure/find the Windows guest endpoint in Shared Network mode.
+2. TLS library, certificate format and pinning API compatible with supported OS versions.
+3. Safe pairing UI for comparing the certificate fingerprint and transferring the secret locally.
+4. Concrete connect, acknowledgement and backoff timeout values.
+5. Exact acknowledgement semantics when Windows accepts a preference but some apps update asynchronously.
+6. Whether the chosen JSON libraries can reliably reject duplicate object member names; if not, choose a parser/validation strategy that can.
+
+This document defines the proposed contract; it is not evidence that the transport, pairing UX or end-to-end behaviour has been implemented or tested.
