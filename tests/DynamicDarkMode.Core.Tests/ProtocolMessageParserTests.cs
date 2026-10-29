@@ -15,38 +15,106 @@ public sealed class ProtocolMessageParserTests
     [InlineData("dark", ThemeAppearance.Dark)]
     public void ParsesValidAppearanceRequest(string appearance, ThemeAppearance expected)
     {
-        var message = Parse($$"""{"{{Header}},"type":"appearance.set","appearance":"{{appearance}}"}""");
+        // Arrange
+        var json = $$"""{"{{Header}},"type":"appearance.set","appearance":"{{appearance}}"}""";
+        var payload = Encoding.UTF8.GetBytes(json);
 
-        message.Type.ShouldBe(ProtocolMessageType.AppearanceSet);
-        message.Appearance.ShouldBe(expected);
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeTrue($"Expected a valid message, got {error}.");
+        message.ShouldNotBeNull();
+        message.ShouldSatisfyAllConditions(
+            () => message.Type.ShouldBe(ProtocolMessageType.AppearanceSet),
+            () => message.Appearance.ShouldBe(expected),
+            () => message.Status.ShouldBeNull(),
+            () => message.Code.ShouldBeNull());
     }
 
     [Fact]
-    public void ParsesValidPairAndAuthenticationRequests()
+    public void ParsesValidPairingRequest()
     {
-        Parse($$"""{"{{Header}},"type":"pair.request","secret":"{{TestSecret}}"}""")
-            .Type.ShouldBe(ProtocolMessageType.PairRequest);
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(
+            $$"""{"{{Header}},"type":"pair.request","secret":"{{TestSecret}}"}""");
 
-        Parse($$"""{"{{Header}},"type":"auth.request","secret":"{{TestSecret}}"}""")
-            .Type.ShouldBe(ProtocolMessageType.AuthRequest);
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeTrue($"Expected a valid message, got {error}.");
+        message.ShouldNotBeNull();
+        message.ShouldSatisfyAllConditions(
+            () => message.Type.ShouldBe(ProtocolMessageType.PairRequest),
+            () => message.Secret.ShouldBe(TestSecret),
+            () => message.Appearance.ShouldBeNull());
     }
 
     [Fact]
-    public void ParsesValidAcknowledgementAndErrorResults()
+    public void ParsesValidAuthenticationRequest()
     {
-        var applied = Parse($$"""{"{{Header}},"type":"ack","status":"applied","appearance":"dark"}""");
-        applied.Type.ShouldBe(ProtocolMessageType.Acknowledgement);
-        applied.Status.ShouldBe("applied");
-        applied.Appearance.ShouldBe(ThemeAppearance.Dark);
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(
+            $$"""{"{{Header}},"type":"auth.request","secret":"{{TestSecret}}"}""");
 
-        Parse($$"""{"{{Header}},"type":"ack","status":"error","code":"temporarily_unavailable"}""")
-            .Code.ShouldBe("temporarily_unavailable");
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
 
-        Parse($$"""{"{{Header}},"type":"pair.result","status":"paired"}""")
-            .Status.ShouldBe("paired");
+        // Assert
+        success.ShouldBeTrue($"Expected a valid message, got {error}.");
+        message.ShouldNotBeNull();
+        message.ShouldSatisfyAllConditions(
+            () => message.Type.ShouldBe(ProtocolMessageType.AuthRequest),
+            () => message.Secret.ShouldBe(TestSecret),
+            () => message.Appearance.ShouldBeNull());
+    }
 
-        Parse($$"""{"{{Header}},"type":"auth.result","status":"authenticated"}""")
-            .Status.ShouldBe("authenticated");
+    [Fact]
+    public void ParsesValidAppliedAcknowledgement()
+    {
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(
+            $$"""{"{{Header}},"type":"ack","status":"applied","appearance":"dark"}""");
+
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeTrue($"Expected a valid message, got {error}.");
+        message.ShouldNotBeNull();
+        message.ShouldSatisfyAllConditions(
+            () => message.Type.ShouldBe(ProtocolMessageType.Acknowledgement),
+            () => message.Status.ShouldBe("applied"),
+            () => message.Appearance.ShouldBe(ThemeAppearance.Dark),
+            () => message.Code.ShouldBeNull());
+    }
+
+    [Theory]
+    [InlineData("ack", "error", "temporarily_unavailable", ProtocolMessageType.Acknowledgement)]
+    [InlineData("pair.result", "paired", null, ProtocolMessageType.PairResult)]
+    [InlineData("auth.result", "authenticated", null, ProtocolMessageType.AuthResult)]
+    public void ParsesValidStatusResults(
+        string type,
+        string status,
+        string? code,
+        ProtocolMessageType expectedType)
+    {
+        // Arrange
+        var optionalCode = code is null ? string.Empty : $",\"code\":\"{code}\"";
+        var json = $$"""{"{{Header}},"type":"{{type}}","status":"{{status}}"{{optionalCode}}}""";
+        var payload = Encoding.UTF8.GetBytes(json);
+
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeTrue($"Expected a valid message, got {error}.");
+        message.ShouldNotBeNull();
+        message.ShouldSatisfyAllConditions(
+            () => message.Type.ShouldBe(expectedType),
+            () => message.Status.ShouldBe(status),
+            () => message.Code.ShouldBe(code));
     }
 
     [Theory]
@@ -59,34 +127,79 @@ public sealed class ProtocolMessageParserTests
     [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"version\":1,\"type\":\"appearance.set\",\"appearance\":\"dark\",\"nested\":{\"x\":1,\"x\":2}}", ProtocolValidationError.DuplicateProperty)]
     public void RejectsInvalidMessages(string json, ProtocolValidationError expectedError)
     {
-        var success = ProtocolMessageParser.TryParse(Encoding.UTF8.GetBytes(json), out var message, out var error);
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(json);
 
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
         success.ShouldBeFalse();
         message.ShouldBeNull();
         error.ShouldBe(expectedError);
     }
 
     [Fact]
-    public void RejectsUnsupportedVersionAndAppearance()
+    public void RejectsUnsupportedProtocolVersion()
     {
-        Reject($$"""{"protocol":"dynamic-dark-mode-sync","version":2,"type":"appearance.set","appearance":"dark"}""");
-        Reject($$"""{"{{Header}},"type":"appearance.set","appearance":"auto"}""");
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(
+            """{"protocol":"dynamic-dark-mode-sync","version":2,"type":"appearance.set","appearance":"dark"}""");
+
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeFalse();
+        message.ShouldBeNull();
+        error.ShouldBe(ProtocolValidationError.InvalidSchema);
     }
 
     [Fact]
-    public void RejectsMalformedOrWrongLengthPairingSecrets()
+    public void RejectsUnsupportedAppearance()
     {
-        Reject($$"""{"{{Header}},"type":"pair.request","secret":"not-a-secret"}""");
-        Reject($$"""{"{{Header}},"type":"auth.request","secret":"{{TestSecret}}="}""");
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(
+            $$"""{"{{Header}},"type":"appearance.set","appearance":"auto"}""");
+
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeFalse();
+        message.ShouldBeNull();
+        error.ShouldBe(ProtocolValidationError.InvalidSchema);
+    }
+
+    [Theory]
+    [InlineData("not-a-secret")]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB")]
+    public void RejectsMalformedOrNonCanonicalPairingSecrets(string secret)
+    {
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(
+            $$"""{"{{Header}},"type":"pair.request","secret":"{{secret}}"}""");
+
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
+        success.ShouldBeFalse();
+        message.ShouldBeNull();
+        error.ShouldBe(ProtocolValidationError.InvalidSchema);
     }
 
     [Fact]
     public void RejectsPayloadOverLimit()
     {
-        var oversized = Encoding.UTF8.GetBytes(new string(' ', ProtocolMessageParser.MaximumPayloadBytes + 1));
+        // Arrange
+        var payload = Encoding.UTF8.GetBytes(new string(' ', ProtocolMessageParser.MaximumPayloadBytes + 1));
 
-        var success = ProtocolMessageParser.TryParse(oversized, out var message, out var error);
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
 
+        // Assert
         success.ShouldBeFalse();
         message.ShouldBeNull();
         error.ShouldBe(ProtocolValidationError.PayloadTooLarge);
@@ -95,27 +208,32 @@ public sealed class ProtocolMessageParserTests
     [Fact]
     public void RejectsInvalidUtf8()
     {
-        byte[] invalidUtf8 = [0x7B, 0x22, 0x78, 0x22, 0x3A, 0xFF, 0x7D];
+        // Arrange
+        byte[] payload = [0x7B, 0x22, 0x78, 0x22, 0x3A, 0xFF, 0x7D];
 
-        var success = ProtocolMessageParser.TryParse(invalidUtf8, out var message, out var error);
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
 
+        // Assert
         success.ShouldBeFalse();
         message.ShouldBeNull();
         error.ShouldBe(ProtocolValidationError.InvalidJson);
     }
 
-    private static ProtocolMessage Parse(string json)
+    [Fact]
+    public void RejectsUtf8ByteOrderMark()
     {
-        var success = ProtocolMessageParser.TryParse(Encoding.UTF8.GetBytes(json), out var message, out var error);
-        success.ShouldBeTrue($"Expected valid protocol message, got {error}.");
-        message.ShouldNotBeNull();
-        return message!;
-    }
+        // Arrange
+        var json = $$"""{"{{Header}},"type":"appearance.set","appearance":"dark"}""";
+        var jsonBytes = Encoding.UTF8.GetBytes(json);
+        byte[] payload = [0xEF, 0xBB, 0xBF, .. jsonBytes];
 
-    private static void Reject(string json)
-    {
-        var success = ProtocolMessageParser.TryParse(Encoding.UTF8.GetBytes(json), out var message, out _);
+        // Act
+        var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
+
+        // Assert
         success.ShouldBeFalse();
         message.ShouldBeNull();
+        error.ShouldBe(ProtocolValidationError.InvalidJson);
     }
 }
