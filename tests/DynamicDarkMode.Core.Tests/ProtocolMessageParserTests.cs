@@ -142,10 +142,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(expectedError));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(expectedError));
     }
 
     [Fact]
@@ -162,10 +162,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(ProtocolValidationError.InvalidSchema));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.InvalidSchema));
     }
 
     [Fact]
@@ -182,10 +182,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(ProtocolValidationError.InvalidSchema));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.InvalidSchema));
     }
 
     [Theory]
@@ -205,10 +205,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(ProtocolValidationError.InvalidSchema));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.InvalidSchema));
     }
 
     [Fact]
@@ -225,10 +225,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(ProtocolValidationError.PayloadTooLarge));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.PayloadTooLarge));
     }
 
     [Fact]
@@ -244,10 +244,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(ProtocolValidationError.InvalidJson));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.InvalidJson));
     }
 
     [Fact]
@@ -265,10 +265,10 @@ public sealed class ProtocolMessageParserTests
             error: out ProtocolValidationError error);
 
         // Assert
-        (success, message, error).ShouldSatisfyAllConditions(
-            result => result.success.ShouldBeFalse(),
-            result => result.message.ShouldBeNull(),
-            result => result.error.ShouldBe(ProtocolValidationError.InvalidJson));
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.InvalidJson));
     }
 
     private static ProtocolMessage ParseValidMessage(byte[] payload)
