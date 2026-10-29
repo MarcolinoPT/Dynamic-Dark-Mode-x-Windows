@@ -30,7 +30,7 @@ internal sealed class CompanionForm : Form
     {
         try
         {
-            string fingerprint = await Task.Run(() =>
+            string fingerprint = await Task.Run(function: () =>
             {
                 using ReceiverCertificateIdentity identity = ReceiverCertificateIdentity.LoadOrCreate();
                 return identity.Fingerprint;
@@ -69,6 +69,6 @@ internal sealed class CompanionForm : Form
     }
 
     private static string FormatFingerprint(string fingerprint) =>
-        string.Join(":", Enumerable.Range(0, fingerprint.Length / 2)
+        string.Join(separator: ":", values: Enumerable.Range(start: 0, count: fingerprint.Length / 2)
             .Select(index => fingerprint.Substring(index * 2, 2)));
 }
