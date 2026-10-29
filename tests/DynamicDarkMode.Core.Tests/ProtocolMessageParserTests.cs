@@ -53,6 +53,37 @@ public sealed class ProtocolMessageParserTests
     }
 
     [Fact]
+    public void ParsesValidPairingRequestWithBase64UrlCharacters()
+    {
+        // Arrange
+        string secret = "_" + new string('B', 41) + "Q";
+        string json = $"{{{Header},\\\"type\\\":\\\"pair.request\\\",\\\"secret\\\":\\\"{secret}\\\"}}";
+        byte[] payload = Encoding.UTF8.GetBytes(json);
+
+        // Act
+        ProtocolMessage message = ParseValidMessage(payload);
+
+        // Assert
+        message.Secret.ShouldBe(secret);
+    }
+
+    [Fact]
+    public void ToStringDoesNotExposeSecret()
+    {
+        // Arrange
+        ProtocolMessage message = new ProtocolMessage(
+            Type: ProtocolMessageType.PairRequest,
+            Secret: TestSecret);
+
+        // Act
+        string diagnostic = message.ToString();
+
+        // Assert
+        diagnostic.ShouldNotContain(TestSecret);
+        diagnostic.ShouldContain("[REDACTED]");
+    }
+
+    [Fact]
     public void ParsesValidAuthenticationRequest()
     {
         // Arrange
@@ -229,6 +260,49 @@ public sealed class ProtocolMessageParserTests
             () => success.ShouldBeFalse(),
             () => message.ShouldBeNull(),
             () => error.ShouldBe(ProtocolValidationError.PayloadTooLarge));
+    }
+
+    [Fact]
+    public void AcceptsPayloadAtMaximumSize()
+    {
+        // Arrange
+        string json = $"{{{Header},\\\"type\\\":\\\"appearance.set\\\",\\\"appearance\\\":\\\"dark\\\"}}";
+        int paddingLength = ProtocolMessageParser.MaximumPayloadBytes - Encoding.UTF8.GetByteCount(json);
+        byte[] payload = Encoding.UTF8.GetBytes(json + new string(' ', paddingLength));
+
+        // Act
+        bool success = ProtocolMessageParser.TryParse(
+            utf8Payload: payload,
+            message: out ProtocolMessage? message,
+            error: out ProtocolValidationError error);
+
+        // Assert
+        success.ShouldSatisfyAllConditions(
+            () => payload.Length.ShouldBe(ProtocolMessageParser.MaximumPayloadBytes),
+            () => success.ShouldBeTrue($"Expected a valid message, got {error}."),
+            () => message.ShouldNotBeNull(),
+            () => message!.Type.ShouldBe(ProtocolMessageType.AppearanceSet));
+    }
+
+    [Fact]
+    public void RejectsInvalidUtf8InsideString()
+    {
+        // Arrange
+        byte[] prefix = Encoding.UTF8.GetBytes($"{{{Header},\\\"type\\\":\\\"appearance.set\\\",\\\"appearance\\\":\\\"");
+        byte[] suffix = Encoding.UTF8.GetBytes("\\"}}");
+        byte[] payload = [.. prefix, 0xFF, .. suffix];
+
+        // Act
+        bool success = ProtocolMessageParser.TryParse(
+            utf8Payload: payload,
+            message: out ProtocolMessage? message,
+            error: out ProtocolValidationError error);
+
+        // Assert
+        success.ShouldSatisfyAllConditions(
+            () => success.ShouldBeFalse(),
+            () => message.ShouldBeNull(),
+            () => error.ShouldBe(ProtocolValidationError.InvalidJson));
     }
 
     [Fact]
