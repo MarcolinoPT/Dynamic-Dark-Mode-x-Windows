@@ -128,9 +128,9 @@ public static class ProtocolMessageParser
     private static bool HasCommonHeader(JsonElement root) =>
         TryGetString(root, "protocol", out string protocol)
             && protocol == ProtocolIdentifier
-                && root.TryGetProperty("version", out JsonElement version)
+            && root.TryGetProperty("version", out JsonElement version)
             && version.ValueKind == JsonValueKind.Number
-                && version.TryGetInt32(out int versionNumber)
+            && version.TryGetInt32(out int versionNumber)
             && versionNumber == 1;
 
     private static bool TryParseSecretRequest(
@@ -142,9 +142,9 @@ public static class ProtocolMessageParser
         message = null;
         if (HasExactFields(root, "protocol", "version", "type", "secret") is false
             || HasType(root, type) is false
-                || TryGetString(root, "secret", out string secret) is false
-                || IsValidSecret(secret) is false)
-        {
+            || TryGetString(root, "secret", out string secret) is false
+            || IsValidSecret(secret) is false)
+            {
             return false;
         }
 
@@ -163,8 +163,8 @@ public static class ProtocolMessageParser
         if (status == "paired"
 
             && HasExactFields(root, "protocol", "version", "type", "status")
-                && HasType(root, "pair.result"))
-        {
+            && HasType(root, "pair.result"))
+            {
             message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status);
             return true;
         }
@@ -172,10 +172,10 @@ public static class ProtocolMessageParser
         if (status == "error"
 
             && HasExactFields(root, "protocol", "version", "type", "status", "code")
-                && HasType(root, "pair.result")
-                && TryGetString(root, "code", out string code)
-                    && code == "pairing_failed")
-        {
+            && HasType(root, "pair.result")
+            && TryGetString(root, "code", out string code)
+            && code == "pairing_failed")
+            {
             message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status, Code: code);
             return true;
         }
@@ -188,14 +188,14 @@ public static class ProtocolMessageParser
         message = null;
         if (TryGetString(root, "status", out string status) is false
             || HasType(root, "auth.result") is false)
-        {
+            {
             return false;
         }
 
         if (status == "authenticated"
 
             && HasExactFields(root, "protocol", "version", "type", "status"))
-        {
+            {
             message = new ProtocolMessage(Type: ProtocolMessageType.AuthResult, Status: status);
             return true;
         }
@@ -203,9 +203,9 @@ public static class ProtocolMessageParser
         if (status == "error"
 
             && HasExactFields(root, "protocol", "version", "type", "status", "code")
-                && TryGetString(root, "code", out var code)
-                && code == "authentication_failed")
-        {
+            && TryGetString(root, "code", out var code)
+            && code == "authentication_failed")
+            {
             message = new ProtocolMessage(Type: ProtocolMessageType.AuthResult, Status: status, Code: code);
             return true;
         }
@@ -218,8 +218,8 @@ public static class ProtocolMessageParser
         message = null;
         if (HasExactFields(root, "protocol", "version", "type", "appearance") is false
             || HasType(root, "appearance.set") is false
-                || TryGetString(root, "appearance", out string appearance) is false)
-        {
+            || TryGetString(root, "appearance", out string appearance) is false)
+            {
             return false;
         }
 
@@ -244,15 +244,15 @@ public static class ProtocolMessageParser
         message = null;
         if (TryGetString(root, "status", out string status) is false
             || HasType(root, "ack") is false)
-        {
+            {
             return false;
         }
 
         if (status == "applied"
 
             && HasExactFields(root, "protocol", "version", "type", "status", "appearance")
-                && TryGetString(root, "appearance", out var appearance))
-        {
+            && TryGetString(root, "appearance", out var appearance))
+            {
             ThemeAppearance parsedAppearance = appearance switch
             {
                 "light" => ThemeAppearance.Light,
@@ -275,9 +275,9 @@ public static class ProtocolMessageParser
         if (status == "error"
 
             && HasExactFields(root, "protocol", "version", "type", "status", "code")
-                && TryGetString(root, "code", out var code)
-                && code is "apply_failed" or "temporarily_unavailable")
-        {
+            && TryGetString(root, "code", out var code)
+            && code is "apply_failed" or "temporarily_unavailable")
+            {
             message = new ProtocolMessage(Type: ProtocolMessageType.Acknowledgement, Status: status, Code: code);
             return true;
         }
@@ -294,7 +294,7 @@ public static class ProtocolMessageParser
         value = string.Empty;
         if (root.TryGetProperty(propertyName, out JsonElement property) is false
             || property.ValueKind is not JsonValueKind.String)
-        {
+            {
             return false;
         }
 
@@ -321,7 +321,7 @@ public static class ProtocolMessageParser
         // 32 bytes encode to exactly 43 unpadded Base64URL characters.
         if (secret.Length is not 43
             || secret.Any(character => IsBase64UrlCharacter(character) is false))
-        {
+            {
             return false;
         }
 
@@ -356,7 +356,7 @@ public static class ProtocolMessageParser
             {
                 if (names.Add(property.Name) is false
                     || ContainsDuplicateProperty(property.Value))
-                {
+                    {
                     return true;
                 }
             }
