@@ -1,4 +1,5 @@
 using DynamicDarkMode.Core;
+using Xunit;
 
 namespace DynamicDarkMode.Core.Tests;
 
