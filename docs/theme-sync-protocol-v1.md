@@ -18,8 +18,10 @@ Use WebSocket over TLS (`wss://`), consistent with accepted [ADR 0002](decisions
 
 - macOS initiates the connection; Windows listens on configurable TCP port **49173** by default. The receiver must report a clear startup error if the port is unavailable; it must not silently switch ports. The port can be changed through explicit configuration, which must be reflected in the Mac endpoint configuration.
 - At sync start and on reconnect, discover the VM endpoint using `prlctl list -f`; handle stopped/missing VMs, command errors and unexpected output safely. Support manual endpoint configuration as a fallback. Do not poll periodically. mDNS and automatic port negotiation are out of scope for v1.
-- Bind the listener to the intended Parallels virtual-network interface/address. If the intended binding cannot be confirmed at startup, the receiver must not start unless an equivalent narrowly scoped Windows Firewall rule has first been confirmed active.
-- Do not use a wildcard listener protected only by a firewall.
+- Bind the listener only to the specifically identified Parallels-facing guest interface/address. The receiver must positively identify this interface/address unambiguously before starting.
+- If the intended interface/address cannot be identified unambiguously, the receiver must refuse to start. The user may need to configure the Windows network adapter so the intended interface can be identified reliably.
+- A narrowly scoped Windows Firewall rule is defence in depth, not a substitute for identifying and binding to the intended interface, and does not override the fail-closed requirement.
+- Never use a wildcard listener, even when a firewall rule is present.
 - Do not rely on a fixed guest IP address.
 - Do not treat a private IP, port number or Shared Network as authentication.
 - No plaintext fallback, automatic LAN discovery, cloud relay or arbitrary LAN clients in v1.
