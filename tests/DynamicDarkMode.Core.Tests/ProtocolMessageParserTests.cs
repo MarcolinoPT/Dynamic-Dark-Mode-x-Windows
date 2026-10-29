@@ -292,7 +292,7 @@ public sealed class ProtocolMessageParserTests
     {
         // Arrange
         byte[] prefix = Encoding.UTF8.GetBytes($"{{{Header},\"type\":\"appearance.set\",\"appearance\":\"");
-        byte[] suffix = Encoding.UTF8.GetBytes("\\"}}");
+        byte[] suffix = Encoding.UTF8.GetBytes("\"}");
         byte[] payload = [.. prefix, 0xFF, .. suffix];
 
         // Act
