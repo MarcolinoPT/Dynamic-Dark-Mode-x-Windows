@@ -184,7 +184,8 @@ public static class ProtocolMessageParser
     private static bool TryParseAuthResult(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
-        if (TryGetString(root, "status", out string status) is false || HasType(root, "auth.result") is false)
+        if (TryGetString(root, "status", out string status) is false
+            || HasType(root, "auth.result") is false)
         {
             return false;
         }
@@ -237,7 +238,8 @@ public static class ProtocolMessageParser
     private static bool TryParseAcknowledgement(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
-        if (TryGetString(root, "status", out string status) is false || HasType(root, "ack") is false)
+        if (TryGetString(root, "status", out string status) is false
+            || HasType(root, "ack") is false)
         {
             return false;
         }
@@ -278,7 +280,8 @@ public static class ProtocolMessageParser
     }
 
     private static bool HasType(JsonElement root, string expected) =>
-        TryGetString(root, "type", out string actual) && actual == expected;
+        TryGetString(root, "type", out string actual)
+            && actual == expected;
 
     private static bool TryGetString(JsonElement root, string propertyName, out string value)
     {
@@ -310,7 +313,8 @@ public static class ProtocolMessageParser
     private static bool IsValidSecret(string secret)
     {
         // 32 bytes encode to exactly 43 unpadded Base64URL characters.
-        if (secret.Length is not 43 || secret.Any(character => IsBase64UrlCharacter(character) is false))
+        if (secret.Length is not 43
+            || secret.Any(character => IsBase64UrlCharacter(character) is false))
         {
             return false;
         }
@@ -344,7 +348,8 @@ public static class ProtocolMessageParser
             HashSet<string> names = new HashSet<string>(StringComparer.Ordinal);
             foreach (var property in element.EnumerateObject())
             {
-                if (names.Add(property.Name) is false || ContainsDuplicateProperty(property.Value))
+                if (names.Add(property.Name) is false
+                    || ContainsDuplicateProperty(property.Value))
                 {
                     return true;
                 }
