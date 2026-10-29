@@ -127,10 +127,10 @@ public static class ProtocolMessageParser
 
     private static bool HasCommonHeader(JsonElement root) =>
         TryGetString(root, "protocol", out string protocol)
-            && protocol == ProtocolIdentifier &&
-        root.TryGetProperty("version", out JsonElement version)
-            && version.ValueKind == JsonValueKind.Number &&
-        version.TryGetInt32(out int versionNumber)
+            && protocol == ProtocolIdentifier
+                && root.TryGetProperty("version", out JsonElement version)
+            && version.ValueKind == JsonValueKind.Number
+                && version.TryGetInt32(out int versionNumber)
             && versionNumber == 1;
 
     private static bool TryParseSecretRequest(
@@ -141,8 +141,8 @@ public static class ProtocolMessageParser
     {
         message = null;
         if (HasExactFields(root, "protocol", "version", "type", "secret") is false
-            || HasType(root, type) is false ||
-            TryGetString(root, "secret", out string secret) is false
+            || HasType(root, type) is false
+                || TryGetString(root, "secret", out string secret) is false
                 || IsValidSecret(secret) is false)
         {
             return false;
@@ -162,8 +162,8 @@ public static class ProtocolMessageParser
 
         if (status == "paired"
 
-            && HasExactFields(root, "protocol", "version", "type", "status") &&
-            HasType(root, "pair.result"))
+            && HasExactFields(root, "protocol", "version", "type", "status")
+                && HasType(root, "pair.result"))
         {
             message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status);
             return true;
@@ -171,10 +171,10 @@ public static class ProtocolMessageParser
 
         if (status == "error"
 
-            && HasExactFields(root, "protocol", "version", "type", "status", "code") &&
-            HasType(root, "pair.result")
-                && TryGetString(root, "code", out string code) &&
-            code == "pairing_failed")
+            && HasExactFields(root, "protocol", "version", "type", "status", "code")
+                && HasType(root, "pair.result")
+                && TryGetString(root, "code", out string code)
+                    && code == "pairing_failed")
         {
             message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status, Code: code);
             return true;
@@ -202,8 +202,8 @@ public static class ProtocolMessageParser
 
         if (status == "error"
 
-            && HasExactFields(root, "protocol", "version", "type", "status", "code") &&
-            TryGetString(root, "code", out var code)
+            && HasExactFields(root, "protocol", "version", "type", "status", "code")
+                && TryGetString(root, "code", out var code)
                 && code == "authentication_failed")
         {
             message = new ProtocolMessage(Type: ProtocolMessageType.AuthResult, Status: status, Code: code);
@@ -217,8 +217,8 @@ public static class ProtocolMessageParser
     {
         message = null;
         if (HasExactFields(root, "protocol", "version", "type", "appearance") is false
-            || HasType(root, "appearance.set") is false ||
-            TryGetString(root, "appearance", out string appearance) is false)
+            || HasType(root, "appearance.set") is false
+                || TryGetString(root, "appearance", out string appearance) is false)
         {
             return false;
         }
@@ -250,8 +250,8 @@ public static class ProtocolMessageParser
 
         if (status == "applied"
 
-            && HasExactFields(root, "protocol", "version", "type", "status", "appearance") &&
-            TryGetString(root, "appearance", out var appearance))
+            && HasExactFields(root, "protocol", "version", "type", "status", "appearance")
+                && TryGetString(root, "appearance", out var appearance))
         {
             ThemeAppearance parsedAppearance = appearance switch
             {
@@ -274,8 +274,8 @@ public static class ProtocolMessageParser
 
         if (status == "error"
 
-            && HasExactFields(root, "protocol", "version", "type", "status", "code") &&
-            TryGetString(root, "code", out var code)
+            && HasExactFields(root, "protocol", "version", "type", "status", "code")
+                && TryGetString(root, "code", out var code)
                 && code is "apply_failed" or "temporarily_unavailable")
         {
             message = new ProtocolMessage(Type: ProtocolMessageType.Acknowledgement, Status: status, Code: code);
