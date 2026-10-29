@@ -42,6 +42,7 @@ public static class ProtocolMessageParser
 {
     public const int MaximumPayloadBytes = 4096;
     private const string ProtocolIdentifier = "dynamic-dark-mode-sync";
+    private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
 
     public static bool TryParse(
         ReadOnlyMemory<byte> utf8Payload,
@@ -54,6 +55,13 @@ public static class ProtocolMessageParser
         if (utf8Payload.Length > MaximumPayloadBytes)
         {
             error = ProtocolValidationError.PayloadTooLarge;
+            return false;
+        }
+
+        // JSON exchanged by this protocol is UTF-8 without a byte-order mark.
+        if (utf8Payload.Span.StartsWith(Utf8Bom))
+        {
+            error = ProtocolValidationError.InvalidJson;
             return false;
         }
 
@@ -302,9 +310,7 @@ public static class ProtocolMessageParser
     private static bool IsValidSecret(string secret)
     {
         // 32 bytes encode to exactly 43 unpadded Base64URL characters.
-        if (secret.Length != 43 ||
-            secret.Any(character =>
-                !(character is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '-' or '_')))
+        if (secret.Length != 43 || secret.Any(character => !IsBase64UrlCharacter(character)))
         {
             return false;
         }
@@ -325,6 +331,11 @@ public static class ProtocolMessageParser
             return false;
         }
     }
+
+    private static bool IsBase64UrlCharacter(char character) =>
+        character is >= 'A' and <= 'Z' or
+            >= 'a' and <= 'z' or
+            >= '0' and <= '9' or '-' or '_';
 
     private static bool ContainsDuplicateProperty(JsonElement element)
     {
