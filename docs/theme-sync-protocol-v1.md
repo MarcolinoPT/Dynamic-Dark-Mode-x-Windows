@@ -188,7 +188,7 @@ The sender must use a bounded timeout when waiting for an acknowledgement; the c
 
 When Windows returns an `ack` with `status: "error"` and `code: "temporarily_unavailable"`, the sender must retain the latest desired appearance and retry it using bounded exponential backoff with jitter.
 
-- Continue retrying the latest desired state until it is acknowledged as `applied`, the connection closes, or synchronization is disabled.
+- Continue retrying the latest desired state until it is acknowledged as `applied`, an `apply_failed` acknowledgement is received, the connection closes, or synchronization is disabled.
 - Cap the retry delay to avoid rapid retry loops and unbounded delay growth.
 - If the desired appearance changes while a retry is pending, replace the pending value with the new latest appearance. Do not replay the superseded state as a historical transition.
 - If Windows recovers while the connection remains open and the desired appearance has not changed, the sender must still retry the latest state.
@@ -196,7 +196,7 @@ When Windows returns an `ack` with `status: "error"` and `code: "temporarily_una
 
 ### 5.3 Application failure
 
-`apply_failed` reports that Windows could not apply the requested appearance. It must not trigger the automatic retry loop reserved for `temporarily_unavailable`. A later appearance change or successful reconnection may trigger a fresh attempt for the current desired state.
+`apply_failed` reports that Windows could not apply the requested appearance and must stop any active retry loop for that state. It must not trigger or continue the automatic retry loop reserved for `temporarily_unavailable`. Wait for a later appearance change or successful reconnection before attempting the current desired appearance again.
 
 ### 5.4 Reconnection and sync preference
 
