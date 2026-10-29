@@ -49,6 +49,11 @@ public static class ProtocolMessageParser
     private const string ProtocolIdentifier = "dynamic-dark-mode-sync";
     private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
 
+    /// <summary>Parses and validates one UTF-8 protocol message without applying any state changes.</summary>
+    /// <param name="utf8Payload">The complete message payload, excluding transport framing.</param>
+    /// <param name="message">Receives the validated message, or <see langword="null"/> when validation fails.</param>
+    /// <param name="error">Receives the validation failure reason, or <see cref="ProtocolValidationError.None"/> on success.</param>
+    /// <returns><see langword="true"/> when the payload matches a supported protocol v1 schema.</returns>
     public static bool TryParse(
         ReadOnlyMemory<byte> utf8Payload,
         out ProtocolMessage? message,
@@ -141,6 +146,7 @@ public static class ProtocolMessageParser
         }
     }
 
+    /// <summary>Checks the protocol identifier and supported version fields.</summary>
     private static bool HasCommonHeader(JsonElement root) =>
         TryGetString(root, "protocol", out string protocol)
             && protocol == ProtocolIdentifier
@@ -149,6 +155,7 @@ public static class ProtocolMessageParser
             && version.TryGetInt32(out int versionNumber)
             && versionNumber == 1;
 
+    /// <summary>Validates a pairing or authentication request containing a shared secret.</summary>
     private static bool TryParseSecretRequest(
         JsonElement root,
         string type,
@@ -168,6 +175,7 @@ public static class ProtocolMessageParser
         return true;
     }
 
+    /// <summary>Validates a pairing result and its status-specific fields.</summary>
     private static bool TryParsePairResult(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
@@ -197,6 +205,7 @@ public static class ProtocolMessageParser
         return false;
     }
 
+    /// <summary>Validates an authentication result and its status-specific fields.</summary>
     private static bool TryParseAuthResult(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
@@ -225,6 +234,7 @@ public static class ProtocolMessageParser
         return false;
     }
 
+    /// <summary>Validates an appearance update and maps its value to the domain enum.</summary>
     private static bool TryParseAppearanceSet(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
@@ -251,6 +261,7 @@ public static class ProtocolMessageParser
         return true;
     }
 
+    /// <summary>Validates an acknowledgement, including its status and optional error code.</summary>
     private static bool TryParseAcknowledgement(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
@@ -295,10 +306,12 @@ public static class ProtocolMessageParser
         return false;
     }
 
+    /// <summary>Checks whether a message has the expected type discriminator.</summary>
     private static bool HasType(JsonElement root, string expected) =>
         TryGetString(root, "type", out string actual)
             && actual == expected;
 
+    /// <summary>Reads a required JSON string property without coercing other JSON types.</summary>
     private static bool TryGetString(JsonElement root, string propertyName, out string value)
     {
         value = string.Empty;
@@ -312,6 +325,7 @@ public static class ProtocolMessageParser
         return true;
     }
 
+    /// <summary>Ensures an object contains exactly the expected property names.</summary>
     private static bool HasExactFields(JsonElement root, params string[] expectedFields)
     {
         HashSet<string> expected = new HashSet<string>(expectedFields, StringComparer.Ordinal);
@@ -326,6 +340,7 @@ public static class ProtocolMessageParser
         return expected.Count == 0;
     }
 
+    /// <summary>Checks that a secret is canonical unpadded Base64URL for exactly 32 bytes.</summary>
     private static bool IsValidSecret(string secret)
     {
         // 32 bytes encode to exactly 43 unpadded Base64URL characters.
@@ -352,11 +367,13 @@ public static class ProtocolMessageParser
         }
     }
 
+    /// <summary>Returns whether a character belongs to the Base64URL alphabet.</summary>
     private static bool IsBase64UrlCharacter(char character) =>
         character is >= 'A' and <= 'Z' or
             >= 'a' and <= 'z' or
             >= '0' and <= '9' or '-' or '_';
 
+    /// <summary>Recursively detects duplicate property names in JSON objects.</summary>
     private static bool ContainsDuplicateProperty(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Object)
