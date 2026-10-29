@@ -28,8 +28,9 @@ public sealed class ReceiverCertificateIdentityTests
                 firstFingerprint = identity.Fingerprint;
 
                 // Assert
-                identity.Certificate.HasPrivateKey.ShouldBeTrue();
-                firstFingerprint.ShouldNotBeNullOrWhiteSpace();
+                identity.ShouldSatisfyAllConditions(
+                    () => identity.Certificate.HasPrivateKey.ShouldBeTrue(),
+                    () => firstFingerprint.ShouldNotBeNullOrWhiteSpace());
             }
 
             // Act
@@ -38,8 +39,9 @@ public sealed class ReceiverCertificateIdentityTests
                 certificateSubject: subject);
 
             // Assert
-            reloaded.Fingerprint.ShouldBe(firstFingerprint);
-            reloaded.Certificate.HasPrivateKey.ShouldBeTrue();
+            reloaded.ShouldSatisfyAllConditions(
+                () => reloaded.Fingerprint.ShouldBe(firstFingerprint),
+                () => reloaded.Certificate.HasPrivateKey.ShouldBeTrue());
         }
         finally
         {
@@ -74,8 +76,9 @@ public sealed class ReceiverCertificateIdentityTests
                 certificateSubject: subject);
 
             // Assert
-            Should.Throw<CryptographicException>(loadIdentity);
-            CountCertificates(subject: subject).ShouldBe(2);
+            subject.ShouldSatisfyAllConditions(
+                () => Should.Throw<CryptographicException>(loadIdentity),
+                () => CountCertificates(subject: subject).ShouldBe(2));
         }
         finally
         {
@@ -106,9 +109,10 @@ public sealed class ReceiverCertificateIdentityTests
                 certificateSubject: subject);
 
             // Assert
-            Should.Throw<CryptographicException>(loadIdentity);
-            CountCertificates(subject: subject).ShouldBe(1);
-            GetCertificateThumbprints(subject: subject).ShouldContain(originalThumbprint);
+            subject.ShouldSatisfyAllConditions(
+                () => Should.Throw<CryptographicException>(loadIdentity),
+                () => CountCertificates(subject: subject).ShouldBe(1),
+                () => GetCertificateThumbprints(subject: subject).ShouldContain(originalThumbprint));
         }
         finally
         {
@@ -141,9 +145,10 @@ public sealed class ReceiverCertificateIdentityTests
                 certificateSubject: subject);
 
             // Assert
-            Should.Throw<CryptographicException>(loadIdentity);
-            CountCertificates(subject: subject).ShouldBe(1);
-            GetCertificateThumbprints(subject: subject).ShouldContain(originalThumbprint);
+            subject.ShouldSatisfyAllConditions(
+                () => Should.Throw<CryptographicException>(loadIdentity),
+                () => CountCertificates(subject: subject).ShouldBe(1),
+                () => GetCertificateThumbprints(subject: subject).ShouldContain(originalThumbprint));
         }
         finally
         {
@@ -173,12 +178,14 @@ public sealed class ReceiverCertificateIdentityTests
 
             // Act
             string[] fingerprints = await Task.WhenAll(loads);
+            string[] storedThumbprints = GetCertificateThumbprints(subject: subject);
 
             // Assert
-            fingerprints.ShouldNotBeEmpty();
-            fingerprints.Distinct().Count().ShouldBe(1);
-            CountCertificates(subject: subject).ShouldBe(1);
-            GetCertificateThumbprints(subject: subject).Length.ShouldBe(1);
+            fingerprints.ShouldSatisfyAllConditions(
+                () => fingerprints.ShouldNotBeEmpty(),
+                () => fingerprints.Distinct().Count().ShouldBe(1),
+                () => CountCertificates(subject: subject).ShouldBe(1),
+                () => storedThumbprints.Length.ShouldBe(1));
         }
         finally
         {
