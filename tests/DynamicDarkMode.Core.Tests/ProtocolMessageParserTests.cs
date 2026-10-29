@@ -16,7 +16,7 @@ public sealed class ProtocolMessageParserTests
     public void ParsesValidAppearanceRequest(string appearance, ThemeAppearance expected)
     {
         // Arrange
-        var json = $$"""{"{{Header}},"type":"appearance.set","appearance":"{{appearance}}"}""";
+        var json = $"{{{Header},\"type\":\"appearance.set\",\"appearance\":\"{appearance}\"}}";
         var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
@@ -36,8 +36,8 @@ public sealed class ProtocolMessageParserTests
     public void ParsesValidPairingRequest()
     {
         // Arrange
-        var payload = Encoding.UTF8.GetBytes(
-            $$"""{"{{Header}},"type":"pair.request","secret":"{{TestSecret}}"}""");
+        var json = $"{{{Header},\"type\":\"pair.request\",\"secret\":\"{TestSecret}\"}}";
+        var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
         var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
@@ -55,8 +55,8 @@ public sealed class ProtocolMessageParserTests
     public void ParsesValidAuthenticationRequest()
     {
         // Arrange
-        var payload = Encoding.UTF8.GetBytes(
-            $$"""{"{{Header}},"type":"auth.request","secret":"{{TestSecret}}"}""");
+        var json = $"{{{Header},\"type\":\"auth.request\",\"secret\":\"{TestSecret}\"}}";
+        var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
         var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
@@ -74,8 +74,8 @@ public sealed class ProtocolMessageParserTests
     public void ParsesValidAppliedAcknowledgement()
     {
         // Arrange
-        var payload = Encoding.UTF8.GetBytes(
-            $$"""{"{{Header}},"type":"ack","status":"applied","appearance":"dark"}""");
+        var json = $"{{{Header},\"type\":\"ack\",\"status\":\"applied\",\"appearance\":\"dark\"}}";
+        var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
         var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
@@ -102,7 +102,7 @@ public sealed class ProtocolMessageParserTests
     {
         // Arrange
         var optionalCode = code is null ? string.Empty : $",\"code\":\"{code}\"";
-        var json = $$"""{"{{Header}},"type":"{{type}}","status":"{{status}}"{{optionalCode}}}""";
+        var json = $"{{{Header},\"type\":\"{type}\",\"status\":\"{status}\"{optionalCode}}}";
         var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
@@ -159,8 +159,8 @@ public sealed class ProtocolMessageParserTests
     public void RejectsUnsupportedAppearance()
     {
         // Arrange
-        var payload = Encoding.UTF8.GetBytes(
-            $$"""{"{{Header}},"type":"appearance.set","appearance":"auto"}""");
+        var json = $"{{{Header},\"type\":\"appearance.set\",\"appearance\":\"auto\"}}";
+        var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
         var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
@@ -178,8 +178,8 @@ public sealed class ProtocolMessageParserTests
     public void RejectsMalformedOrNonCanonicalPairingSecrets(string secret)
     {
         // Arrange
-        var payload = Encoding.UTF8.GetBytes(
-            $$"""{"{{Header}},"type":"pair.request","secret":"{{secret}}"}""");
+        var json = $"{{{Header},\"type\":\"pair.request\",\"secret\":\"{secret}\"}}";
+        var payload = Encoding.UTF8.GetBytes(json);
 
         // Act
         var success = ProtocolMessageParser.TryParse(payload, out var message, out var error);
@@ -224,7 +224,7 @@ public sealed class ProtocolMessageParserTests
     public void RejectsUtf8ByteOrderMark()
     {
         // Arrange
-        var json = $$"""{"{{Header}},"type":"appearance.set","appearance":"dark"}""";
+        var json = $"{{{Header},\"type\":\"appearance.set\",\"appearance\":\"dark\"}}";
         var jsonBytes = Encoding.UTF8.GetBytes(json);
         byte[] payload = [0xEF, 0xBB, 0xBF, .. jsonBytes];
 
