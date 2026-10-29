@@ -158,6 +158,9 @@ public sealed class ProtocolMessageParserTests
     [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"protocol\":\"dynamic-dark-mode-sync\",\"version\":1,\"type\":\"appearance.set\",\"appearance\":\"dark\"}", ProtocolValidationError.DuplicateProperty)]
     [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"version\":true,\"type\":\"appearance.set\",\"appearance\":\"dark\"}", ProtocolValidationError.InvalidSchema)]
     [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"version\":1,\"type\":\"appearance.set\",\"appearance\":\"dark\",\"extra\":true}", ProtocolValidationError.InvalidSchema)]
+    [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"version\":1,\"type\":\"pair.result\",\"status\":\"paired\",\"code\":\"pairing_failed\"}", ProtocolValidationError.InvalidSchema)]
+    [InlineData("{\"\\uD800\":0}", ProtocolValidationError.InvalidJson)]
+    [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"version\":1,\"type\":\"appearance.set\",\"appearance\":\"\\uD800\"}", ProtocolValidationError.InvalidJson)]
     [InlineData("{\"protocol\":\"dynamic-dark-mode-sync\",\"version\":1,\"type\":\"appearance.set\",\"appearance\":\"dark\",\"nested\":{\"x\":1,\"x\":2}}", ProtocolValidationError.DuplicateProperty)]
     public void RejectsInvalidMessages(
         string json,
