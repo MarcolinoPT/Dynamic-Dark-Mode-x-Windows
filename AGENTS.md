@@ -31,6 +31,13 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 - Review the final diff for accidental changes, generated files, secrets, formatting problems, and unrelated edits.
 - Treat CI failures as blockers until understood. Fix the cause rather than weakening or skipping a check merely to get a green build.
 
+## C# coding conventions
+
+- Prefer named arguments at method and constructor call sites so the intent of each argument is explicit, including for framework APIs where practical. Follow the target C# language version and avoid adding names when they reduce clarity or are unsupported.
+- Prefer semantic, self-documenting expressions over opaque operator usage when a clear alternative exists. This is not a blanket ban on language operators; use the clearest reasonable expression and follow established project conventions.
+- Add automated tests for new behaviour and regression fixes. For security-sensitive code, cover successful operation, failure paths, and relevant boundary cases.
+- Keep UI initialization responsive. Move potentially blocking I/O, certificate-store operations, and expensive cryptographic work off the UI thread, and marshal UI updates back to it safely.
+
 ## Security and privacy
 
 - Preserve the project's approved security boundaries and architecture decisions. In particular, do not casually weaken local-only communication, TLS certificate pinning, explicit/manual pairing, secret protection, or fail-closed behaviour.
