@@ -4,7 +4,7 @@
 - **Related issue:** [#8 — Specify an open, versioned theme-sync protocol](https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/issues/8)
 - **Protocol identifier:** `dynamic-dark-mode-sync`
 - **Version:** `1`
-- **Scope:** One macOS host sends its effective Light/Dark appearance to one paired Windows VM. No cloud, relay, discovery, multi-client hosting, Windows-to-Mac commands, schedules, wallpaper or event history.
+- **Scope:** One macOS host sends its effective Light/Dark appearance to one paired Windows VM. Endpoint discovery through `prlctl list -f` at sync start and reconnect is in scope, with manual endpoint configuration as a fallback. No cloud, relay, automatic LAN discovery, mDNS, multi-client hosting, Windows-to-Mac commands, schedules, wallpaper or event history.
 
 ## 1. Roles and authority
 
