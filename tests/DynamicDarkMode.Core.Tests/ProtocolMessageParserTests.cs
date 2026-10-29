@@ -57,7 +57,7 @@ public sealed class ProtocolMessageParserTests
     {
         // Arrange
         string secret = "_" + new string('B', 41) + "Q";
-        string json = $"{{{Header},\\\"type\\\":\\\"pair.request\\\",\\\"secret\\\":\\\"{secret}\\\"}}";
+        string json = $"{{{Header},\"type\":\"pair.request\",\"secret\":\"{secret}\"}}";
         byte[] payload = Encoding.UTF8.GetBytes(json);
 
         // Act
@@ -266,7 +266,7 @@ public sealed class ProtocolMessageParserTests
     public void AcceptsPayloadAtMaximumSize()
     {
         // Arrange
-        string json = $"{{{Header},\\\"type\\\":\\\"appearance.set\\\",\\\"appearance\\\":\\\"dark\\\"}}";
+        string json = $"{{{Header},\"type\":\"appearance.set\",\"appearance\":\"dark\"}}";
         int paddingLength = ProtocolMessageParser.MaximumPayloadBytes - Encoding.UTF8.GetByteCount(json);
         byte[] payload = Encoding.UTF8.GetBytes(json + new string(' ', paddingLength));
 
@@ -288,7 +288,7 @@ public sealed class ProtocolMessageParserTests
     public void RejectsInvalidUtf8InsideString()
     {
         // Arrange
-        byte[] prefix = Encoding.UTF8.GetBytes($"{{{Header},\\\"type\\\":\\\"appearance.set\\\",\\\"appearance\\\":\\\"");
+        byte[] prefix = Encoding.UTF8.GetBytes($"{{{Header},\"type\":\"appearance.set\",\"appearance\":\"");
         byte[] suffix = Encoding.UTF8.GetBytes("\\"}}");
         byte[] payload = [.. prefix, 0xFF, .. suffix];
 
