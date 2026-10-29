@@ -9,26 +9,37 @@ namespace DynamicDarkMode.Windows.Tests;
 public sealed class ReceiverCertificateIdentityTests
 {
     [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Persistence)]
     public void CreateThenReloadPreservesFingerprint()
     {
+        // Arrange
         string subject = CreateUniqueSubject();
 
         try
         {
             string firstFingerprint;
+
+            // Act
             using (ReceiverCertificateIdentity identity = ReceiverCertificateIdentity.LoadOrCreate(
                 storeName: "My",
                 certificateSubject: subject))
             {
                 firstFingerprint = identity.Fingerprint;
+
+                // Assert
                 identity.Certificate.HasPrivateKey.ShouldBeTrue();
+                firstFingerprint.ShouldNotBeNullOrWhiteSpace();
             }
 
+            // Act
             using ReceiverCertificateIdentity reloaded = ReceiverCertificateIdentity.LoadOrCreate(
                 storeName: "My",
                 certificateSubject: subject);
 
+            // Assert
             reloaded.Fingerprint.ShouldBe(firstFingerprint);
+            reloaded.Certificate.HasPrivateKey.ShouldBeTrue();
         }
         finally
         {
@@ -37,8 +48,11 @@ public sealed class ReceiverCertificateIdentityTests
     }
 
     [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Security)]
     public void RejectsDuplicateIdentities()
     {
+        // Arrange
         string subject = CreateUniqueSubject();
 
         try
@@ -54,10 +68,14 @@ public sealed class ReceiverCertificateIdentityTests
             AddCertificate(certificate: first);
             AddCertificate(certificate: second);
 
-            Should.Throw<CryptographicException>(() =>
-                ReceiverCertificateIdentity.LoadOrCreate(
-                    storeName: "My",
-                    certificateSubject: subject));
+            // Act
+            Action loadIdentity = () => ReceiverCertificateIdentity.LoadOrCreate(
+                storeName: "My",
+                certificateSubject: subject);
+
+            // Assert
+            Should.Throw<CryptographicException>(loadIdentity);
+            CountCertificates(subject: subject).ShouldBe(2);
         }
         finally
         {
@@ -66,8 +84,11 @@ public sealed class ReceiverCertificateIdentityTests
     }
 
     [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Security)]
     public void RejectsExpiredIdentityWithoutReplacingIt()
     {
+        // Arrange
         string subject = CreateUniqueSubject();
 
         try
@@ -77,13 +98,17 @@ public sealed class ReceiverCertificateIdentityTests
                 notBefore: DateTimeOffset.UtcNow.AddDays(-3),
                 notAfter: DateTimeOffset.UtcNow.AddDays(-2));
             AddCertificate(certificate: expired);
+            string originalThumbprint = expired.Thumbprint;
 
-            Should.Throw<CryptographicException>(() =>
-                ReceiverCertificateIdentity.LoadOrCreate(
-                    storeName: "My",
-                    certificateSubject: subject));
+            // Act
+            Action loadIdentity = () => ReceiverCertificateIdentity.LoadOrCreate(
+                storeName: "My",
+                certificateSubject: subject);
 
+            // Assert
+            Should.Throw<CryptographicException>(loadIdentity);
             CountCertificates(subject: subject).ShouldBe(1);
+            GetCertificateThumbprints(subject: subject).ShouldContain(originalThumbprint);
         }
         finally
         {
@@ -92,8 +117,11 @@ public sealed class ReceiverCertificateIdentityTests
     }
 
     [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Security)]
     public void RejectsIdentityWithoutPrivateKeyWithoutReplacingIt()
     {
+        // Arrange
         string subject = CreateUniqueSubject();
 
         try
@@ -105,13 +133,17 @@ public sealed class ReceiverCertificateIdentityTests
             using var withoutPrivateKey = new X509Certificate2(
                 rawData: withPrivateKey.Export(X509ContentType.Cert));
             AddCertificate(certificate: withoutPrivateKey);
+            string originalThumbprint = withoutPrivateKey.Thumbprint;
 
-            Should.Throw<CryptographicException>(() =>
-                ReceiverCertificateIdentity.LoadOrCreate(
-                    storeName: "My",
-                    certificateSubject: subject));
+            // Act
+            Action loadIdentity = () => ReceiverCertificateIdentity.LoadOrCreate(
+                storeName: "My",
+                certificateSubject: subject);
 
+            // Assert
+            Should.Throw<CryptographicException>(loadIdentity);
             CountCertificates(subject: subject).ShouldBe(1);
+            GetCertificateThumbprints(subject: subject).ShouldContain(originalThumbprint);
         }
         finally
         {
@@ -120,14 +152,17 @@ public sealed class ReceiverCertificateIdentityTests
     }
 
     [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Concurrency)]
     public async Task ConcurrentFirstLoadsReuseOneIdentity()
     {
+        // Arrange
         string subject = CreateUniqueSubject();
 
         try
         {
-            Task<string>[] loads = Enumerable.Range(0, 4)
-                .Select(_ => Task.Run(() =>
+            Task<string>[] loads = Enumerable.Range(start: 0, count: 4)
+                .Select(_ => Task.Run(function: () =>
                 {
                     using ReceiverCertificateIdentity identity = ReceiverCertificateIdentity.LoadOrCreate(
                         storeName: "My",
@@ -136,10 +171,14 @@ public sealed class ReceiverCertificateIdentityTests
                 }))
                 .ToArray();
 
+            // Act
             string[] fingerprints = await Task.WhenAll(loads);
 
+            // Assert
+            fingerprints.ShouldNotBeEmpty();
             fingerprints.Distinct().Count().ShouldBe(1);
             CountCertificates(subject: subject).ShouldBe(1);
+            GetCertificateThumbprints(subject: subject).ShouldBe([fingerprints[0]]);
         }
         finally
         {
@@ -155,42 +194,84 @@ public sealed class ReceiverCertificateIdentityTests
         DateTimeOffset notBefore,
         DateTimeOffset notAfter)
     {
+        // Arrange
         using RSA key = RSA.Create(keySizeInBits: 2048);
         var request = new CertificateRequest(
             subjectName: subject,
             key: key,
             hashAlgorithm: HashAlgorithmName.SHA256,
             padding: RSASignaturePadding.Pkcs1);
-        return request.CreateSelfSigned(
+
+        // Act
+        X509Certificate2 certificate = request.CreateSelfSigned(
             notBefore: notBefore,
             notAfter: notAfter);
+
+        // Assert
+        certificate.Subject.ShouldBe(subject);
+        certificate.HasPrivateKey.ShouldBeTrue();
+        return certificate;
     }
 
     private static void AddCertificate(X509Certificate2 certificate)
     {
+        // Arrange
         using var store = new X509Store(
             storeName: "My",
             storeLocation: StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadWrite);
+
+        // Act
         store.Add(certificate: certificate);
+
+        // Assert
+        CountCertificates(subject: certificate.Subject).ShouldBeGreaterThan(0);
     }
 
     private static int CountCertificates(string subject)
     {
+        // Arrange
         using var store = new X509Store(
             storeName: "My",
             storeLocation: StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadOnly);
-        return store.Certificates
-            .Find(
-                findType: X509FindType.FindBySubjectDistinguishedName,
-                findValue: subject,
-                validOnly: false)
-            .Count;
+
+        // Act
+        X509Certificate2Collection matches = store.Certificates.Find(
+            findType: X509FindType.FindBySubjectDistinguishedName,
+            findValue: subject,
+            validOnly: false);
+
+        // Assert
+        matches.ShouldNotBeNull();
+        return matches.Count;
+    }
+
+    private static string[] GetCertificateThumbprints(string subject)
+    {
+        // Arrange
+        using var store = new X509Store(
+            storeName: "My",
+            storeLocation: StoreLocation.CurrentUser);
+        store.Open(OpenFlags.ReadOnly);
+
+        // Act
+        X509Certificate2Collection matches = store.Certificates.Find(
+            findType: X509FindType.FindBySubjectDistinguishedName,
+            findValue: subject,
+            validOnly: false);
+
+        // Assert
+        matches.ShouldNotBeNull();
+        return matches
+            .Cast<X509Certificate2>()
+            .Select(certificate => certificate.Thumbprint)
+            .ToArray();
     }
 
     private static void RemoveCertificates(string subject)
     {
+        // Arrange
         using var store = new X509Store(
             storeName: "My",
             storeLocation: StoreLocation.CurrentUser);
@@ -200,6 +281,8 @@ public sealed class ReceiverCertificateIdentityTests
             findType: X509FindType.FindBySubjectDistinguishedName,
             findValue: subject,
             validOnly: false);
+
+        // Act
         foreach (X509Certificate2 certificate in matches)
         {
             using (certificate)
@@ -207,5 +290,8 @@ public sealed class ReceiverCertificateIdentityTests
                 store.Remove(certificate: certificate);
             }
         }
+
+        // Assert
+        CountCertificates(subject: subject).ShouldBe(0);
     }
 }
