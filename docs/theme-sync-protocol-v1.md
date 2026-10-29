@@ -323,13 +323,20 @@ There is no plaintext fallback or silent version downgrade. Incompatible changes
 
 ## 8. Open implementation decisions
 
-The proof of concept must validate these before v1 is considered production-ready:
+The following initial implementation defaults are agreed; validate them in the proof of concept and tune only if tests justify a change:
+
+- Pairing mode is explicitly enabled in the local Windows UI and expires after **5 minutes**. The receiver must not accept a new pairing request after expiry.
+- Connection timeout: **5 seconds**.
+- Appearance acknowledgement timeout: **3 seconds**.
+- Reconnect and temporary-unavailability retry: **bounded exponential backoff with jitter**, starting at **1 second** and capped at **30 seconds**.
+- Authentication rate limit: **5 failed attempts per minute**, followed by a cooldown. The exact cooldown duration remains to be selected during implementation.
+
+Still open:
 
 1. Exact port and how to configure/find the Windows guest endpoint in Shared Network mode.
 2. TLS library, certificate format and pinning API compatible with supported OS versions.
-3. Define the Pairing mode UI and its activation/expiry behaviour; the bootstrap message schemas and uncertain-outcome recovery policy are specified in section 3.1.
-4. Concrete connect, acknowledgement, retry delay/cap, jitter and authentication rate-limit values.
-5. Exact acknowledgement semantics when Windows accepts a preference but some apps update asynchronously.
-6. Whether the chosen JSON libraries can reliably reject duplicate object member names; if not, choose a parser/validation strategy that can.
+3. Exact cooldown duration for authentication rate limiting.
+4. Exact acknowledgement semantics when Windows accepts a preference but some apps update asynchronously.
+5. Whether the chosen JSON libraries can reliably reject duplicate object member names; if not, choose a parser/validation strategy that can.
 
 This document defines the proposed contract; it is not evidence that the transport, pairing UX or end-to-end behaviour has been implemented or tested.
