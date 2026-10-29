@@ -143,8 +143,8 @@ public sealed class ReceiverCertificateIdentityTests
                 subject: subject,
                 notBefore: DateTimeOffset.UtcNow.AddDays(-1),
                 notAfter: DateTimeOffset.UtcNow.AddDays(1));
-            using var withoutPrivateKey = new X509Certificate2(
-                rawData: withPrivateKey.Export(X509ContentType.Cert));
+            using var withoutPrivateKey = X509CertificateLoader.LoadCertificate(
+                withPrivateKey.Export(X509ContentType.Cert));
             AddCertificate(certificate: withoutPrivateKey);
             string originalThumbprint = withoutPrivateKey.Thumbprint;
 
