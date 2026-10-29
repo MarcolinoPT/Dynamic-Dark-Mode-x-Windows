@@ -22,7 +22,12 @@ public sealed record ProtocolMessage(
     ThemeAppearance? Appearance = null,
     string? Status = null,
     string? Code = null,
-    string? Secret = null);
+    string? Secret = null)
+{
+    /// <summary>Returns a diagnostic representation that never includes the pairing secret.</summary>
+    public override string ToString() =>
+        $"ProtocolMessage {{ Type = {Type}, Appearance = {Appearance}, Status = {Status}, Code = {Code}, Secret = {(Secret is null ? "null" : "[REDACTED]")} }}";
+}
 
 public enum ProtocolValidationError
 {
@@ -59,7 +64,8 @@ public static class ProtocolMessageParser
         }
 
         // JSON exchanged by this protocol is UTF-8 without a byte-order mark.
-        if (utf8Payload.Span.StartsWith(Utf8Bom))
+        if (utf8Payload.Span.StartsWith(Utf8Bom)
+            || System.Text.Unicode.Utf8.IsValid(utf8Payload.Span) is false)
         {
             error = ProtocolValidationError.InvalidJson;
             return false;
@@ -76,9 +82,11 @@ public static class ProtocolMessageParser
             return false;
         }
 
-        using (document)
+        try
         {
-            JsonElement root = document.RootElement;
+            using (document)
+            {
+                JsonElement root = document.RootElement;
             if (root.ValueKind is not JsonValueKind.Object)
             {
                 error = ProtocolValidationError.NonObject;
@@ -122,6 +130,14 @@ public static class ProtocolMessageParser
             }
 
             return true;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // JsonDocument can defer decoding malformed escaped Unicode until a property is read.
+            message = null;
+            error = ProtocolValidationError.InvalidJson;
+            return false;
         }
     }
 
