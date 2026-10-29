@@ -312,7 +312,13 @@ public static class ProtocolMessageParser
         var base64 = secret.Replace('-', '+').Replace('_', '/') + "=";
         try
         {
-            return Convert.FromBase64String(base64).Length == 32;
+            var decoded = Convert.FromBase64String(base64);
+            var canonical = Convert.ToBase64String(decoded)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+            return decoded.Length == 32 &&
+                string.Equals(canonical, secret, StringComparison.Ordinal);
         }
         catch (FormatException)
         {
