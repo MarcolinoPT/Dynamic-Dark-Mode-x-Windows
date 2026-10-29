@@ -142,7 +142,7 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
             pathLengthConstraint: 0,
             critical: true));
         request.CertificateExtensions.Add(new X509KeyUsageExtension(
-            X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
+            keyUsages: X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
             critical: true));
 
         var serverAuthentication = new Oid(
