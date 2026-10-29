@@ -226,7 +226,7 @@ There is no plaintext fallback or silent version downgrade. Incompatible changes
 ### Transport and validation
 
 - [ ] Connection uses WebSocket over TLS; no custom length prefix is used.
-- [ ] Receiver binding is restricted to the intended virtual-network interface/address, or an equivalent narrowly scoped firewall rule is confirmed active before startup.
+- [ ] Receiver binding meets the restrictions in section 2. If the intended binding cannot be confirmed, an equivalent narrowly scoped firewall rule is confirmed active before startup; a wildcard listener protected only by a firewall is never used.
 - [ ] Valid `light` and `dark` appearance messages are accepted.
 - [ ] Missing/wrongly typed fields, extra fields, wrong protocol identifier, unsupported version/type and invalid appearance are rejected.
 - [ ] Duplicate JSON member names are rejected, including repeated `appearance` fields.
