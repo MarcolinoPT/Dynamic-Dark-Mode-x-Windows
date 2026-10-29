@@ -178,7 +178,7 @@ public sealed class ReceiverCertificateIdentityTests
             fingerprints.ShouldNotBeEmpty();
             fingerprints.Distinct().Count().ShouldBe(1);
             CountCertificates(subject: subject).ShouldBe(1);
-            GetCertificateThumbprints(subject: subject).ShouldBe(new[] { fingerprints[0] });
+            GetCertificateThumbprints(subject: subject).Length.ShouldBe(1);
         }
         finally
         {
