@@ -40,16 +40,65 @@ Pairing is an explicit local setup flow. No credentials are sent to cloud servic
 1. On first setup, the Windows receiver creates a self-signed TLS server certificate and private key if no identity exists. Persist them in the Windows Current User → Personal certificate store, with private-key access restricted to the Windows user running the companion. The identity must survive normal VM restarts and application upgrades.
 2. The Windows companion displays the full SHA-256 fingerprint of its own certificate. The Mac discovers the Windows endpoint and inspects the certificate presented by the live TLS endpoint without trusting it and without sending any pairing secret.
 3. The Mac displays the full SHA-256 fingerprint calculated from that live peer certificate. The user compares it with the fingerprint displayed directly by the Windows companion and explicitly confirms the match on the Mac. If they do not match or the user rejects pairing, abort without storing a trusted identity or sending a secret.
-4. Only after confirmation, the Mac pins the verified certificate identity in Keychain and generates a cryptographically random 256-bit pairing secret.
-5. The Mac establishes TLS with certificate validation against the newly pinned identity, then provisions the secret to Windows over that verified TLS channel using a first-pairing bootstrap exchange. The secret must never be sent before fingerprint confirmation. The exact bootstrap message schema must be documented before implementation; it is distinct from the normal `auth.request` exchange used on subsequent connections.
-6. Windows protects the pairing secret using DPAPI for the appropriate user. The Mac stores its copy in Keychain. Pairing succeeds only after Windows confirms it securely stored the secret and the Mac receives a valid successful pairing result.
-7. On subsequent connections, the Mac validates the TLS certificate against the pinned identity before sending the existing secret in `auth.request`. Windows authenticates every new connection before accepting appearance messages.
+4. Before provisioning, the user must explicitly enable **Pairing mode** in the local Windows companion UI. Pairing mode is a deliberate local setup action and cannot be enabled over the network. The receiver must reject `pair.request` when Pairing mode is not active.
+5. Only after fingerprint confirmation, the Mac pins the verified certificate identity in Keychain and generates a cryptographically random 256-bit pairing secret.
+6. The Mac stores the secret as pending in Keychain, establishes TLS with certificate validation against the newly pinned identity, and sends the secret using the bootstrap exchange in section 3.1. The secret must never be sent before fingerprint confirmation.
+7. Windows accepts a pairing request only while Pairing mode is active and no Mac is already paired. It protects and persists the secret using DPAPI before returning success. The Mac activates its pending secret only after receiving a valid success result over the same pinned TLS identity.
+8. On subsequent connections, the Mac validates the TLS certificate against the pinned identity before sending the existing secret in `auth.request`. Windows authenticates every new connection before accepting appearance messages.
 
 The pairing secret is represented in protocol messages as unpadded Base64URL. Decoding it must produce exactly 32 bytes. The secret authorizes the sender; certificate pinning authenticates the receiver. Neither replaces the other. Use platform TLS/crypto libraries; do not invent cryptographic primitives. Full fingerprint comparison is a user-operated first-pairing trust step, not automatic trust-on-first-use.
 
-### 3.1 Authentication exchange
+### 3.1 First-pairing bootstrap exchange
 
-The following exchange applies to an already paired Mac. The first-pairing bootstrap that provisions a new secret is separate and must be specified before implementation; do not use `auth.request` to provision a secret to an unpaired receiver.
+This exchange is permitted only after the user has explicitly enabled Pairing mode in the local Windows companion UI and the Mac has verified and pinned the live TLS certificate after manual fingerprint comparison. The receiver accepts at most one Mac and rejects a pairing request if Pairing mode is inactive or a pairing already exists. These failure conditions use the same generic error result.
+
+**Mac → Windows: pairing request**
+
+```json
+{
+  "protocol": "dynamic-dark-mode-sync",
+  "version": 1,
+  "type": "pair.request",
+  "secret": "<base64url-secret>"
+}
+```
+
+The `secret` is the unpadded Base64URL encoding of exactly 32 cryptographically random bytes.
+
+**Windows → Mac: pairing success**
+
+```json
+{
+  "protocol": "dynamic-dark-mode-sync",
+  "version": 1,
+  "type": "pair.result",
+  "status": "paired"
+}
+```
+
+Windows may send this success result only after it has successfully persisted the secret using DPAPI. The Mac activates the pending Keychain secret only after receiving a valid success result over the same pinned TLS identity.
+
+**Windows → Mac: pairing failure**
+
+```json
+{
+  "protocol": "dynamic-dark-mode-sync",
+  "version": 1,
+  "type": "pair.result",
+  "status": "error",
+  "code": "pairing_failed"
+}
+```
+
+Use the same generic `pairing_failed` result for inactive Pairing mode, an already-paired receiver, or a provisioning/storage failure; do not disclose unnecessary receiver state. Malformed requests may be rejected by closing the connection without a response. A network request must never replace, reset or revoke an existing pairing.
+
+**Uncertain provisioning outcome:** if the connection drops or the Mac does not receive a valid success result, the Mac must not activate the pending secret or automatically resend it. It must discard the pending secret and pin state for that incomplete attempt and report that deliberate re-pairing is required. Windows must not automatically accept a retry or overwrite an existing stored secret. If Windows may have persisted the secret before the acknowledgement was lost, the user must explicitly reset/revoke pairing locally on Windows and remove the incomplete pairing on the Mac, then restart the full fingerprint-verification and pairing flow. There is no idempotent provisioning retry in v1.
+
+The receiver must validate exact fields and reject duplicate JSON member names. Never log secrets or raw credential material.
+
+### 3.2 Authentication exchange
+
+The following exchange applies to an already paired Mac. Do not use `auth.request` to provision a secret to an unpaired receiver.
 
 Authentication messages are WebSocket text messages containing JSON objects. Each message must match the schema shown below exactly.
 
@@ -89,11 +138,11 @@ The `secret` field contains the unpadded Base64URL encoding of the 32-byte pairi
 }
 ```
 
-The receiver must validate the secret before accepting any appearance message. The sender must not send `appearance.set` until it receives a valid `auth.result` with `status: "authenticated"`.
+The receiver must validate the secret before accepting any appearance message. The sender must not send `appearance.set` until it receives a valid `auth.result` with authenticated status.
 
 On authentication failure, the receiver must not accept appearance commands, must return the generic failure result when appropriate, and must close the connection. Authentication attempts should be rate-limited. Malformed authentication messages may be rejected by closing the connection without a response. The receiver must validate exact fields and reject duplicate JSON member names. Never log secrets or raw credential material. Authentication is required on every new connection, and revoked credentials must no longer authorize updates.
 
-### 3.2 Lifecycle and security failure
+### 3.3 Lifecycle and security failure
 
 - Revoke pairing explicitly on either side; delete stored credentials and stop sync until paired again.
 - Re-pairing generates a new secret; never reuse revoked credentials.
@@ -242,7 +291,11 @@ There is no plaintext fallback or silent version downgrade. Incompatible changes
 - [ ] The secret is unpadded Base64URL and decodes to exactly 32 bytes.
 - [ ] The Mac displays the fingerprint derived from the live TLS peer certificate and sends no secret before the user confirms it matches the fingerprint displayed directly by Windows.
 - [ ] A rejected/mismatched fingerprint leaves no trusted pin and sends no pairing secret.
+- [ ] Pairing is rejected unless the user has explicitly enabled local Pairing mode in the Windows companion; the network cannot enable Pairing mode.
 - [ ] First pairing provisions a Mac-generated 256-bit secret only over TLS validated against the user-confirmed pinned identity.
+- [ ] Pairing requests and success/failure results match the exact schemas in section 3.1; inactive Pairing mode, already-paired state and storage failure use the generic pairing_failed result.
+- [ ] Windows sends a successful paired result only after the secret is persisted using DPAPI; the Mac activates its pending Keychain secret only after a valid success result.
+- [ ] An uncertain provisioning disconnect never triggers an automatic retry or silent credential replacement; deliberate local reset/re-pairing is required on both sides.
 - [ ] The Windows receiver certificate/private key persists in the Current User → Personal certificate store with private-key access restricted to the companion's Windows user.
 - [ ] Missing/lost certificate or private key fails closed and requires explicit re-pairing; no replacement identity is silently trusted.
 - [ ] The Mac rejects an unpinned or changed receiver certificate and never sends the existing secret before certificate verification.
@@ -274,7 +327,7 @@ The proof of concept must validate these before v1 is considered production-read
 
 1. Exact port and how to configure/find the Windows guest endpoint in Shared Network mode.
 2. TLS library, certificate format and pinning API compatible with supported OS versions.
-3. Define the exact first-pairing bootstrap message/schema and success result for provisioning the Mac-generated secret over verified TLS; define the UI for comparing the full certificate fingerprint.
+3. Define the Pairing mode UI and its activation/expiry behaviour; the bootstrap message schemas and uncertain-outcome recovery policy are specified in section 3.1.
 4. Concrete connect, acknowledgement, retry delay/cap, jitter and authentication rate-limit values.
 5. Exact acknowledgement semantics when Windows accepts a preference but some apps update asynchronously.
 6. Whether the chosen JSON libraries can reliably reject duplicate object member names; if not, choose a parser/validation strategy that can.
