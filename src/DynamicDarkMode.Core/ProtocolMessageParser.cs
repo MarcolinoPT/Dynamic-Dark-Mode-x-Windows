@@ -78,7 +78,7 @@ public static class ProtocolMessageParser
 
         using (document)
         {
-            var root = document.RootElement;
+            JsonElement root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
             {
                 error = ProtocolValidationError.NonObject;
@@ -103,7 +103,7 @@ public static class ProtocolMessageParser
                 return false;
             }
 
-            var valid = type switch
+            bool valid = type switch
             {
                 "pair.request" => TryParseSecretRequest(root, "pair.request", ProtocolMessageType.PairRequest, out message),
                 "auth.request" => TryParseSecretRequest(root, "auth.request", ProtocolMessageType.AuthRequest, out message),
@@ -148,7 +148,7 @@ public static class ProtocolMessageParser
             return false;
         }
 
-        message = new ProtocolMessage(messageType, Secret: secret);
+        message = new ProtocolMessage(Type: messageType, Secret: secret);
         return true;
     }
 
@@ -164,7 +164,7 @@ public static class ProtocolMessageParser
             HasExactFields(root, "protocol", "version", "type", "status") &&
             HasType(root, "pair.result"))
         {
-            message = new ProtocolMessage(ProtocolMessageType.PairResult, Status: status);
+            message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status);
             return true;
         }
 
@@ -174,7 +174,7 @@ public static class ProtocolMessageParser
             TryGetString(root, "code", out var code) &&
             code == "pairing_failed")
         {
-            message = new ProtocolMessage(ProtocolMessageType.PairResult, Status: status, Code: code);
+            message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status, Code: code);
             return true;
         }
 
@@ -192,7 +192,7 @@ public static class ProtocolMessageParser
         if (status == "authenticated" &&
             HasExactFields(root, "protocol", "version", "type", "status"))
         {
-            message = new ProtocolMessage(ProtocolMessageType.AuthResult, Status: status);
+            message = new ProtocolMessage(Type: ProtocolMessageType.AuthResult, Status: status);
             return true;
         }
 
@@ -201,7 +201,7 @@ public static class ProtocolMessageParser
             TryGetString(root, "code", out var code) &&
             code == "authentication_failed")
         {
-            message = new ProtocolMessage(ProtocolMessageType.AuthResult, Status: status, Code: code);
+            message = new ProtocolMessage(Type: ProtocolMessageType.AuthResult, Status: status, Code: code);
             return true;
         }
 
@@ -218,7 +218,7 @@ public static class ProtocolMessageParser
             return false;
         }
 
-        var parsedAppearance = appearance switch
+        ThemeAppearance parsedAppearance = appearance switch
         {
             "light" => ThemeAppearance.Light,
             "dark" => ThemeAppearance.Dark,
@@ -230,7 +230,7 @@ public static class ProtocolMessageParser
             return false;
         }
 
-        message = new ProtocolMessage(ProtocolMessageType.AppearanceSet, Appearance: parsedAppearance);
+        message = new ProtocolMessage(Type: ProtocolMessageType.AppearanceSet, Appearance: parsedAppearance);
         return true;
     }
 
@@ -246,7 +246,7 @@ public static class ProtocolMessageParser
             HasExactFields(root, "protocol", "version", "type", "status", "appearance") &&
             TryGetString(root, "appearance", out var appearance))
         {
-            var parsedAppearance = appearance switch
+            ThemeAppearance parsedAppearance = appearance switch
             {
                 "light" => ThemeAppearance.Light,
                 "dark" => ThemeAppearance.Dark,
@@ -259,7 +259,7 @@ public static class ProtocolMessageParser
             }
 
             message = new ProtocolMessage(
-                ProtocolMessageType.Acknowledgement,
+                Type: ProtocolMessageType.Acknowledgement,
                 Appearance: parsedAppearance,
                 Status: status);
             return true;
@@ -270,7 +270,7 @@ public static class ProtocolMessageParser
             TryGetString(root, "code", out var code) &&
             code is "apply_failed" or "temporarily_unavailable")
         {
-            message = new ProtocolMessage(ProtocolMessageType.Acknowledgement, Status: status, Code: code);
+            message = new ProtocolMessage(Type: ProtocolMessageType.Acknowledgement, Status: status, Code: code);
             return true;
         }
 
@@ -295,7 +295,7 @@ public static class ProtocolMessageParser
 
     private static bool HasExactFields(JsonElement root, params string[] expectedFields)
     {
-        var expected = new HashSet<string>(expectedFields, StringComparer.Ordinal);
+        HashSet<string> expected = new HashSet<string>(expectedFields, StringComparer.Ordinal);
         foreach (var property in root.EnumerateObject())
         {
             if (!expected.Remove(property.Name))
@@ -310,16 +310,16 @@ public static class ProtocolMessageParser
     private static bool IsValidSecret(string secret)
     {
         // 32 bytes encode to exactly 43 unpadded Base64URL characters.
-        if (secret.Length != 43 || secret.Any(character => !IsBase64UrlCharacter(character)))
+        if (secret.Length != 43 || secret.Any(character => IsBase64UrlCharacter(character) is false))
         {
             return false;
         }
 
-        var base64 = secret.Replace('-', '+').Replace('_', '/') + "=";
+        string base64 = secret.Replace('-', '+').Replace('_', '/') + "=";
         try
         {
-            var decoded = Convert.FromBase64String(base64);
-            var canonical = Convert.ToBase64String(decoded)
+            byte[] decoded = Convert.FromBase64String(base64);
+            string canonical = Convert.ToBase64String(decoded)
                 .TrimEnd('=')
                 .Replace('+', '-')
                 .Replace('/', '_');
@@ -341,7 +341,7 @@ public static class ProtocolMessageParser
     {
         if (element.ValueKind == JsonValueKind.Object)
         {
-            var names = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> names = new HashSet<string>(StringComparer.Ordinal);
             foreach (var property in element.EnumerateObject())
             {
                 if (!names.Add(property.Name) || ContainsDuplicateProperty(property.Value))
