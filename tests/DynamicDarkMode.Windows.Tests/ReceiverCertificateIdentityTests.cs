@@ -285,8 +285,18 @@ public sealed class ReceiverCertificateIdentityTests
         {
             using (certificate)
             {
+                DeletePersistedPrivateKey(certificate: certificate);
                 store.Remove(certificate: certificate);
             }
+        }
+    }
+
+    private static void DeletePersistedPrivateKey(X509Certificate2 certificate)
+    {
+        using RSA? privateKey = certificate.GetRSAPrivateKey();
+        if (privateKey is RSACng rsaCng && rsaCng.Key.IsEphemeral is false)
+        {
+            rsaCng.Key.Delete();
         }
     }
 }
