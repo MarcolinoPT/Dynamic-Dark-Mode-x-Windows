@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Principal;
 
 namespace DynamicDarkMode.Windows;
 
@@ -25,13 +26,59 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
     /// <summary>Full SHA-256 fingerprint of the certificate's DER encoding, uppercase hex.</summary>
     public string Fingerprint { get; }
 
-    public static ReceiverCertificateIdentity LoadOrCreate()
+    public static ReceiverCertificateIdentity LoadOrCreate(
+        string storeName = StoreName,
+        string certificateSubject = CertificateSubject)
     {
-        using var store = new X509Store(StoreName, StoreLocation.CurrentUser);
+        string userSid = WindowsIdentity.GetCurrent().User?.Value
+            ?? throw new InvalidOperationException("The current Windows user SID is unavailable.");
+        string mutexName = $@"Local\DynamicDarkMode.ReceiverIdentity.{userSid}";
+
+        using var identityMutex = new Mutex(
+            initiallyOwned: false,
+            name: mutexName);
+        bool mutexAcquired = false;
+
+        try
+        {
+            try
+            {
+                mutexAcquired = identityMutex.WaitOne();
+            }
+            catch (AbandonedMutexException)
+            {
+                // The previous owner exited unexpectedly. The mutex is acquired
+                // by this thread, so inspect the store while holding the lock.
+                mutexAcquired = true;
+            }
+
+            return LoadOrCreateWhileLocked(
+                storeName: storeName,
+                certificateSubject: certificateSubject);
+        }
+        finally
+        {
+            if (mutexAcquired)
+            {
+                identityMutex.ReleaseMutex();
+            }
+        }
+    }
+
+    private static ReceiverCertificateIdentity LoadOrCreateWhileLocked(
+        string storeName,
+        string certificateSubject)
+    {
+        using var store = new X509Store(
+            storeName: storeName,
+            storeLocation: StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadWrite);
 
         var matches = store.Certificates
-            .Find(X509FindType.FindBySubjectDistinguishedName, CertificateSubject, validOnly: false)
+            .Find(
+                findType: X509FindType.FindBySubjectDistinguishedName,
+                findValue: certificateSubject,
+                validOnly: false)
             .Cast<X509Certificate2>()
             .ToArray();
 
@@ -44,12 +91,13 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
         if (matches.Length == 1)
         {
             X509Certificate2 existing = matches[0];
-            ValidateExistingIdentity(existing);
+            ValidateExistingIdentity(certificate: existing);
             return new ReceiverCertificateIdentity(new X509Certificate2(existing));
         }
 
-        using X509Certificate2 created = CreatePersistentIdentity();
-        store.Add(created);
+        using X509Certificate2 created = CreatePersistentIdentity(
+            certificateSubject: certificateSubject);
+        store.Add(certificate: created);
         return new ReceiverCertificateIdentity(new X509Certificate2(created));
     }
 
@@ -63,7 +111,7 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
                 "The existing receiver identity is outside its validity period; refusing to replace it.");
         }
 
-        if (!certificate.HasPrivateKey)
+        if (certificate.HasPrivateKey is false)
         {
             throw new CryptographicException(
                 "The existing receiver identity has no accessible private key; refusing to replace it.");
@@ -79,14 +127,14 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
         }
     }
 
-    private static X509Certificate2 CreatePersistentIdentity()
+    private static X509Certificate2 CreatePersistentIdentity(string certificateSubject)
     {
-        using RSA key = RSA.Create(3072);
+        using RSA key = RSA.Create(keySizeInBits: 3072);
         var request = new CertificateRequest(
-            CertificateSubject,
-            key,
-            HashAlgorithmName.SHA256,
-            RSASignaturePadding.Pkcs1);
+            subjectName: certificateSubject,
+            key: key,
+            hashAlgorithm: HashAlgorithmName.SHA256,
+            padding: RSASignaturePadding.Pkcs1);
 
         request.CertificateExtensions.Add(new X509BasicConstraintsExtension(
             certificateAuthority: false,
@@ -97,26 +145,32 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
             X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
             critical: true));
 
-        var serverAuthentication = new Oid("1.3.6.1.5.5.7.3.1", "Server Authentication");
+        var serverAuthentication = new Oid(
+            value: "1.3.6.1.5.5.7.3.1",
+            friendlyName: "Server Authentication");
         var enhancedKeyUsage = new OidCollection { serverAuthentication };
-        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(enhancedKeyUsage, critical: true));
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
+            enhancedKeyUsage: enhancedKeyUsage,
+            critical: true));
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
         using X509Certificate2 generated = request.CreateSelfSigned(
-            now.AddMinutes(-5),
-            now.Add(CertificateLifetime));
+            notBefore: now.AddMinutes(-5),
+            notAfter: now.Add(CertificateLifetime));
 
         // CreateSelfSigned's in-memory key is exported only long enough to import
         // it into the current user's persistent key store. UserKeySet keeps the
         // private key in the companion user's profile; no machine-wide key is used.
         string temporaryPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        byte[] pfx = generated.Export(X509ContentType.Pfx, temporaryPassword);
+        byte[] pfx = generated.Export(
+            contentType: X509ContentType.Pfx,
+            password: temporaryPassword);
         try
         {
             return new X509Certificate2(
-                pfx,
-                temporaryPassword,
-                X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet);
+                rawData: pfx,
+                password: temporaryPassword,
+                keyStorageFlags: X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet);
         }
         finally
         {
