@@ -1,6 +1,6 @@
 # Theme Sync Protocol v1
 
-- **Status:** Proposed for review; not production-ready until open implementation decisions are resolved.
+- **Status:** Proposed for implementation; the initial implementation defaults below are agreed, but the protocol is not production-ready until the proof of concept validates them.
 - **Related issue:** [#8 — Specify an open, versioned theme-sync protocol](https://github.com/MarcolinoPT/Dynamic-Dark-Mode-x-Windows/issues/8)
 - **Protocol identifier:** `dynamic-dark-mode-sync`
 - **Version:** `1`
@@ -16,7 +16,8 @@ Keep protocol parsing, transport, macOS appearance observation and Windows theme
 
 Use WebSocket over TLS (`wss://`), consistent with accepted [ADR 0002](decisions/0002-local-host-guest-theme-sync.md). Validate compatibility with supported OS versions and confirm host-to-guest reachability in Parallels Shared Network mode.
 
-- macOS initiates the connection; Windows listens on a configurable port.
+- macOS initiates the connection; Windows listens on configurable TCP port **49173** by default. The receiver must report a clear startup error if the port is unavailable; it must not silently switch ports. The port can be changed through explicit configuration, which must be reflected in the Mac endpoint configuration.
+- At sync start and on reconnect, discover the VM endpoint using `prlctl list -f`; handle stopped/missing VMs, command errors and unexpected output safely. Support manual endpoint configuration as a fallback. Do not poll periodically. mDNS and automatic port negotiation are out of scope for v1.
 - Bind the listener to the intended Parallels virtual-network interface/address. If the intended binding cannot be confirmed at startup, the receiver must not start unless an equivalent narrowly scoped Windows Firewall rule has first been confirmed active.
 - Do not use a wildcard listener protected only by a firewall.
 - Do not rely on a fixed guest IP address.
@@ -47,6 +48,8 @@ Pairing is an explicit local setup flow. No credentials are sent to cloud servic
 8. On subsequent connections, the Mac validates the TLS certificate against the pinned identity before sending the existing secret in `auth.request`. Windows authenticates every new connection before accepting appearance messages.
 
 The pairing secret is represented in protocol messages as unpadded Base64URL. Decoding it must produce exactly 32 bytes. The secret authorizes the sender; certificate pinning authenticates the receiver. Neither replaces the other. Use platform TLS/crypto libraries; do not invent cryptographic primitives. Full fingerprint comparison is a user-operated first-pairing trust step, not automatic trust-on-first-use.
+
+Use native platform networking and TLS APIs: Apple's networking/TLS APIs on macOS and .NET networking/TLS APIs on Windows. Compute the displayed fingerprint as SHA-256 over the certificate's DER encoding. On every connection, validate the live peer certificate against the explicitly confirmed, stored pin before sending any secret. The proof of concept must verify the precise certificate-inspection and pin-validation API behaviour on supported OS versions.
 
 ### 3.1 First-pairing bootstrap exchange
 
@@ -140,7 +143,7 @@ The `secret` field contains the unpadded Base64URL encoding of the 32-byte pairi
 
 The receiver must validate the secret before accepting any appearance message. The sender must not send `appearance.set` until it receives a valid `auth.result` with authenticated status.
 
-On authentication failure, the receiver must not accept appearance commands, must return the generic failure result when appropriate, and must close the connection. Authentication attempts should be rate-limited. Malformed authentication messages may be rejected by closing the connection without a response. The receiver must validate exact fields and reject duplicate JSON member names. Never log secrets or raw credential material. Authentication is required on every new connection, and revoked credentials must no longer authorize updates.
+On authentication failure, the receiver must not accept appearance commands, must return the generic failure result when appropriate, and must close the connection. Apply a rolling-window limit of **5 failed authentication attempts in 60 seconds**, then reject further authentication attempts for a **60-second cooldown**. The cooldown applies to authentication attempts at the receiver, not to already authenticated connections. Malformed authentication messages may be rejected by closing the connection without a response. The receiver must validate exact fields and reject duplicate JSON member names. Never log secrets or raw credential material. Authentication is required on every new connection, and revoked credentials must no longer authorize updates.
 
 ### 3.3 Lifecycle and security failure
 
@@ -234,7 +237,7 @@ Applying the same appearance repeatedly must be harmless. A duplicate state may 
 
 ### 5.1 Acknowledgement timeout
 
-The sender must use a bounded timeout when waiting for an acknowledgement; the concrete value remains an implementation decision. If the acknowledgement times out, the sender must treat the outcome as uncertain, close/reconnect, reauthenticate, and send a fresh snapshot of the latest desired appearance. Duplicate application must be harmless.
+The sender must use a **3-second** timeout when waiting for an appearance acknowledgement. If the acknowledgement times out, the sender must treat the outcome as uncertain, close/reconnect, reauthenticate, and send a fresh snapshot of the latest desired appearance. Duplicate application must be harmless.
 
 ### 5.2 Temporary unavailability
 
@@ -301,7 +304,7 @@ There is no plaintext fallback or silent version downgrade. Incompatible changes
 - [ ] The Mac rejects an unpinned or changed receiver certificate and never sends the existing secret before certificate verification.
 - [ ] Unauthenticated, incorrect-secret and revoked senders cannot update appearance.
 - [ ] Appearance requests sent before successful authentication are rejected.
-- [ ] Authentication is repeated after reconnect; failed authentication is rate-limited and secrets never appear in logs.
+- [ ] Authentication is repeated after reconnect; after five failed attempts in a rolling 60-second window, further authentication attempts are rejected for a 60-second cooldown; secrets never appear in logs.
 - [ ] No plaintext fallback is possible.
 
 ### State and recovery
@@ -321,22 +324,26 @@ There is no plaintext fallback or silent version downgrade. Incompatible changes
 - [ ] Record tested macOS, Windows and Parallels versions.
 - [ ] Verify current-user theme changes without unnecessary elevation.
 
-## 8. Open implementation decisions
+## 8. Agreed implementation defaults and remaining validation
 
-The following initial implementation defaults are agreed; validate them in the proof of concept and tune only if tests justify a change:
+The following implementation decisions are agreed for v1. The proof of concept must validate them; change them only if tests or platform constraints justify a reviewed update:
 
 - Pairing mode is explicitly enabled in the local Windows UI and expires after **5 minutes**. The receiver must not accept a new pairing request after expiry.
+- Default TCP port: **49173**, configurable explicitly; no silent port switching or automatic port negotiation.
+- Endpoint discovery: run `prlctl list -f` at sync start and on reconnect; allow manual endpoint configuration as fallback. No periodic polling or mDNS in v1.
 - Connection timeout: **5 seconds**.
 - Appearance acknowledgement timeout: **3 seconds**.
 - Reconnect and temporary-unavailability retry: **bounded exponential backoff with jitter**, starting at **1 second** and capped at **30 seconds**.
-- Authentication rate limit: **5 failed attempts per minute**, followed by a cooldown. The exact cooldown duration remains to be selected during implementation.
+- Authentication rate limit: **5 failed attempts in a rolling 60-second window**, followed by a **60-second cooldown**.
+- A successful `applied` acknowledgement confirms the Windows current-user appearance setting was applied or already active; it does not promise every application's repaint has completed.
+- Use native platform networking/TLS APIs: Apple's APIs on macOS and .NET APIs on Windows. Fingerprints are SHA-256 of the certificate's DER encoding; validate the pinned identity on every connection before sending a secret.
+- Reject duplicate JSON member names before schema validation. Use native JSON parsers only with explicit duplicate-member detection; verify the chosen API/library behaviour on both platforms and add conformance tests. If a parser cannot support reliable detection, select a parser/validation approach that can.
 
-Still open:
+Remaining validation during the proof of concept:
 
-1. Exact port and how to configure/find the Windows guest endpoint in Shared Network mode.
-2. TLS library, certificate format and pinning API compatible with supported OS versions.
-3. Exact cooldown duration for authentication rate limiting.
-4. Exact acknowledgement semantics when Windows accepts a preference but some apps update asynchronously.
-5. Whether the chosen JSON libraries can reliably reject duplicate object member names; if not, choose a parser/validation strategy that can.
+1. Verify `prlctl list -f` parsing and endpoint reachability in the supported Parallels Shared Network setup.
+2. Verify the precise certificate-inspection/pinning APIs on supported macOS and Windows versions.
+3. Verify that duplicate-key rejection is reliable with the selected parsing approach on both platforms.
+4. Verify that the intended Windows listener binding and narrowly scoped firewall behaviour can be confirmed safely at startup.
 
-This document defines the proposed contract; it is not evidence that the transport, pairing UX or end-to-end behaviour has been implemented or tested.
+This document defines the agreed contract and proposed defaults; it is not evidence that the transport, pairing UX or end-to-end behaviour has been implemented or tested.
