@@ -27,9 +27,21 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 
 - Keep changes minimal, readable, and consistent with the surrounding code and target frameworks.
 - Add or update automated tests for changed behaviour and regression fixes. Include malformed-input and boundary cases when relevant.
+- Structure tests clearly with Arrange, Act, and Assert sections.
+- Keep assertions in the test itself, where the test's behaviour and expectations are visible. Test helpers should arrange fixtures or capture and return values; they must not perform assertions or hide test expectations.
+- Capture all values needed for verification during the Act phase, then assert them together in the Assert phase.
+- Use at most one `ShouldSatisfyAllConditions` call per test. Put the test's independent assertions in that single holistic assertion block so one failure does not prevent the remaining checks from running. If a coherent holistic assertion block is awkward or the checks represent distinct behaviours, split the test rather than adding multiple holistic assertion blocks.
+- For expected failures, capture the exception and other resulting state during Act, then assert the exception type and state together in the test's holistic assertion block.
 - Run the narrowest relevant tests first, then applicable build/test commands. Report the commands run and their actual results; never claim tests passed if they were not run or CI has not completed.
 - Review the final diff for accidental changes, generated files, secrets, formatting problems, and unrelated edits.
 - Treat CI failures as blockers until understood. Fix the cause rather than weakening or skipping a check merely to get a green build.
+
+## C# coding conventions
+
+- Prefer named arguments at method and constructor call sites so the intent of each argument is explicit, including for framework APIs where practical. Follow the target C# language version and avoid adding names when they reduce clarity or are unsupported.
+- Prefer semantic, self-documenting expressions over opaque operator usage when a clear alternative exists. This is not a blanket ban on language operators; use the clearest reasonable expression and follow established project conventions.
+- Add automated tests for new behaviour and regression fixes. For security-sensitive code, cover successful operation, failure paths, and relevant boundary cases.
+- Keep UI initialization responsive. Move potentially blocking I/O, certificate-store operations, and expensive cryptographic work off the UI thread, and marshal UI updates back to it safely.
 
 ## Security and privacy
 
