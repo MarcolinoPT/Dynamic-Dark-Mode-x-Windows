@@ -97,7 +97,7 @@ public static class ProtocolMessageParser
                 return false;
             }
 
-            if (!TryGetString(root, "type", out var type))
+            if (!TryGetString(root, "type", out string type))
             {
                 error = ProtocolValidationError.InvalidSchema;
                 return false;
@@ -126,11 +126,11 @@ public static class ProtocolMessageParser
     }
 
     private static bool HasCommonHeader(JsonElement root) =>
-        TryGetString(root, "protocol", out var protocol) &&
+        TryGetString(root, "protocol", out string protocol) &&
         protocol == ProtocolIdentifier &&
-        root.TryGetProperty("version", out var version) &&
+        root.TryGetProperty("version", out JsonElement version) &&
         version.ValueKind == JsonValueKind.Number &&
-        version.TryGetInt32(out var versionNumber) &&
+        version.TryGetInt32(out int versionNumber) &&
         versionNumber == 1;
 
     private static bool TryParseSecretRequest(
@@ -142,7 +142,7 @@ public static class ProtocolMessageParser
         message = null;
         if (!HasExactFields(root, "protocol", "version", "type", "secret") ||
             !HasType(root, type) ||
-            !TryGetString(root, "secret", out var secret) ||
+            !TryGetString(root, "secret", out string secret) ||
             !IsValidSecret(secret))
         {
             return false;
@@ -155,7 +155,7 @@ public static class ProtocolMessageParser
     private static bool TryParsePairResult(JsonElement root, out ProtocolMessage? message)
     {
         message = null;
-        if (!TryGetString(root, "status", out var status))
+        if (!TryGetString(root, "status", out string status))
         {
             return false;
         }
@@ -171,7 +171,7 @@ public static class ProtocolMessageParser
         if (status == "error" &&
             HasExactFields(root, "protocol", "version", "type", "status", "code") &&
             HasType(root, "pair.result") &&
-            TryGetString(root, "code", out var code) &&
+            TryGetString(root, "code", out string code) &&
             code == "pairing_failed")
         {
             message = new ProtocolMessage(Type: ProtocolMessageType.PairResult, Status: status, Code: code);
@@ -213,7 +213,7 @@ public static class ProtocolMessageParser
         message = null;
         if (!HasExactFields(root, "protocol", "version", "type", "appearance") ||
             !HasType(root, "appearance.set") ||
-            !TryGetString(root, "appearance", out var appearance))
+            !TryGetString(root, "appearance", out string appearance))
         {
             return false;
         }
@@ -278,12 +278,12 @@ public static class ProtocolMessageParser
     }
 
     private static bool HasType(JsonElement root, string expected) =>
-        TryGetString(root, "type", out var actual) && actual == expected;
+        TryGetString(root, "type", out string actual) && actual == expected;
 
     private static bool TryGetString(JsonElement root, string propertyName, out string value)
     {
         value = string.Empty;
-        if (!root.TryGetProperty(propertyName, out var property) ||
+        if (!root.TryGetProperty(propertyName, out JsonElement property) ||
             property.ValueKind != JsonValueKind.String)
         {
             return false;
