@@ -167,8 +167,8 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
             password: temporaryPassword);
         try
         {
-            return new X509Certificate2(
-                rawData: pfx,
+            return X509CertificateLoader.LoadPkcs12(
+                pfx,
                 password: temporaryPassword,
                 keyStorageFlags: X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet);
         }
