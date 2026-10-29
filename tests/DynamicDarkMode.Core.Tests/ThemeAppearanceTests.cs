@@ -7,6 +7,12 @@ namespace DynamicDarkMode.Core.Tests;
 public sealed class ThemeAppearanceTests
 {
     [Fact]
+    public void DefaultAppearance_IsUnknown()
+    {
+        default(ThemeAppearance).ShouldBe(ThemeAppearance.Unknown);
+    }
+
+    [Fact]
     public void Appearance_ExposesExplicitValuesIncludingUnknown()
     {
         Enum.GetValues<ThemeAppearance>()
