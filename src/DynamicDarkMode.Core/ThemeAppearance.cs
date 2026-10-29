@@ -6,6 +6,7 @@ namespace DynamicDarkMode.Core;
 /// </summary>
 public enum ThemeAppearance
 {
-    Light,
-    Dark
+    Unknown = 0,
+    Light = 1,
+    Dark = 2
 }
