@@ -150,7 +150,7 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
             friendlyName: "Server Authentication");
         var enhancedKeyUsage = new OidCollection { serverAuthentication };
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
-            enhancedKeyUsage: enhancedKeyUsage,
+            enhancedKeyUsages: enhancedKeyUsage,
             critical: true));
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -161,7 +161,7 @@ internal sealed class ReceiverCertificateIdentity : IDisposable
         // CreateSelfSigned's in-memory key is exported only long enough to import
         // it into the current user's persistent key store. UserKeySet keeps the
         // private key in the companion user's profile; no machine-wide key is used.
-        string temporaryPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        string temporaryPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(count: 32));
         byte[] pfx = generated.Export(
             contentType: X509ContentType.Pfx,
             password: temporaryPassword);
