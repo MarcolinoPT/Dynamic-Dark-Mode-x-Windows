@@ -4,6 +4,8 @@ namespace DynamicDarkMode.Windows;
 
 internal sealed class CompanionForm : Form
 {
+    private readonly Label _statusLabel;
+
     public CompanionForm()
     {
         Text = "Dynamic Dark Mode";
@@ -11,38 +13,59 @@ internal sealed class CompanionForm : Form
         MinimumSize = new Size(560, 260);
         Size = new Size(680, 320);
 
-        var statusLabel = new Label
+        _statusLabel = new Label
         {
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(24),
-            AutoEllipsis = false
+            AutoEllipsis = false,
+            Text = "Initializing Windows receiver identity..."
         };
 
+        Controls.Add(_statusLabel);
+        Shown += async (_, _) => await InitializeIdentityAsync();
+    }
+
+    private async Task InitializeIdentityAsync()
+    {
         try
         {
-            using ReceiverCertificateIdentity identity = ReceiverCertificateIdentity.LoadOrCreate();
-            statusLabel.Text =
+            string fingerprint = await Task.Run(() =>
+            {
+                using ReceiverCertificateIdentity identity = ReceiverCertificateIdentity.LoadOrCreate();
+                return identity.Fingerprint;
+            });
+
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            _statusLabel.Text =
                 "Windows receiver identity ready\n\n" +
                 "SHA-256 certificate fingerprint (compare this full value with the Mac):\n" +
-                FormatFingerprint(identity.Fingerprint) +
+                FormatFingerprint(fingerprint) +
                 "\n\nThe network listener is not enabled in this build.";
         }
         catch (Exception exception) when (
             exception is CryptographicException
                 or UnauthorizedAccessException
                 or IOException
-                or InvalidOperationException)
+                or InvalidOperationException
+                or System.Threading.WaitHandleCannotBeOpenedException)
         {
             // Do not start any listener when persistent identity cannot be loaded
             // safely. Keep details out of the UI until diagnostics are designed.
-            statusLabel.Text =
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            _statusLabel.Text =
                 "Receiver identity unavailable.\n\n" +
                 "The receiver must remain stopped. Check the current user's " +
                 "Personal certificate store and private-key access, then restart.";
         }
-
-        Controls.Add(statusLabel);
     }
 
     private static string FormatFingerprint(string fingerprint) =>
