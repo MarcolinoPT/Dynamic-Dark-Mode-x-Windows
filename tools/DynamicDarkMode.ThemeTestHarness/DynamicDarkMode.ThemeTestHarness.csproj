@@ -7,6 +7,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\\..\\src\\DynamicDarkMode.Windows\\DynamicDarkMode.Windows.csproj" />
+    <ProjectReference Include="..\..\src\DynamicDarkMode.Windows\DynamicDarkMode.Windows.csproj" />
   </ItemGroup>
 </Project>
