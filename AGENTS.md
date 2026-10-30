@@ -9,6 +9,19 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 - Distinguish implemented behaviour from proposals, prototypes, and planned work in documentation and PR descriptions.
 - If requirements conflict, security assumptions are unclear, or a change would alter an approved architecture decision, stop and ask for clarification rather than guessing.
 
+## Work planning: vertical slices
+
+- Work is organized as **vertical slices**: one issue describes one independently deliverable, observable capability, and one PR implements that issue.
+- A slice includes the production change (where applicable), relevant automated tests, manual validation scenarios, and necessary documentation updates. Do not defer testing or manual acceptance criteria to an unrelated follow-up ticket.
+- Keep issues small enough that the intended implementation, tests, and review can be understood together. If scope, dependencies, or uncertainty make that difficult, split the work before implementation.
+- Do not split work artificially by class, method, or test file. A ticket should deliver a meaningful behaviour or capability, not merely a technical fragment with no independently verifiable outcome.
+- State the goal, scope and exclusions, dependencies, acceptance criteria, automated test expectations, manual validation scenarios, and relevant security constraints in each issue.
+- Express observable acceptance behaviour in Gherkin (`Feature`, `Scenario`, `Given`, `When`, `Then`). Include both automated and manual scenarios in the same issue when both are relevant. Clearly identify which scenarios are automated and which require manual execution.
+- Manual scenarios are first-class acceptance criteria. Record the tested environment, actual result, pass/fail outcome, and relevant evidence or logs (with secrets and sensitive data redacted).
+- When uncertainty prevents a well-defined implementation slice, create a narrowly scoped investigation/spike with a concrete question and expected decision/output. Use its findings to define implementation issues; do not hide exploratory work inside a broad implementation ticket.
+- An issue is not complete merely because its code is merged. Complete its applicable automated checks and required manual validation, and record the results.
+- Avoid permanent umbrella implementation issues that accumulate unrelated deliverables. Keep architectural rationale in ADRs, protocol contracts in their documentation, and implementation work in individual vertical-slice issues.
+
 ## Git and commit conventions
 
 - Create a focused branch from the default branch for each independent change. Follow existing branch naming patterns such as `feat/short-description`, `fix/short-description`, and `docs/short-description`.
