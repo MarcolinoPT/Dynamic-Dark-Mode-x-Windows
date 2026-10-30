@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicDarkMode.Core.Tests"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicDarkMode.Windows.Tests", "tests\DynamicDarkMode.Windows.Tests\DynamicDarkMode.Windows.Tests.csproj", "{D14D4E2C-0D50-4B8A-9E20-5F3C5C1C1004}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamicDarkMode.ThemeTestHarness", "tools\DynamicDarkMode.ThemeTestHarness\DynamicDarkMode.ThemeTestHarness.csproj", "{D14D4E2C-0D50-4B8A-9E20-5F3C5C1C1005}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
