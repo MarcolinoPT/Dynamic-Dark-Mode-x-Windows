@@ -14,7 +14,7 @@ public sealed class WindowsThemeApplierTests
     [InlineData(ThemeAppearance.Light, 1)]
     [InlineData(ThemeAppearance.Dark, 0)]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task AppliesRequestedAppearanceToBothCurrentUserSettings(
+    public async Task ApplyAsync_WhenAppearanceIsLightOrDark_AppliesBothCurrentUserSettings(
         ThemeAppearance appearance,
         int expectedValue)
     {
@@ -40,7 +40,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task AppliesLightToOnlyTheSettingThatDoesNotAlreadyMatch()
+    public async Task ApplyAsync_WhenOnlyOneSettingDiffers_UpdatesOnlyThatSetting()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 1, appsValue: 0);
@@ -64,7 +64,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task AlreadyActiveAppearanceDoesNotWriteOrNotify()
+    public async Task ApplyAsync_WhenAppearanceIsAlreadyActive_DoesNotWriteOrNotify()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 0, appsValue: 0);
@@ -84,7 +84,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task ConcurrentApplicationsAreSerialized()
+    public async Task ApplyAsync_WhenCalledConcurrently_SerializesApplications()
     {
         // Arrange
         using var firstWriteEntered = new ManualResetEventSlim();
@@ -142,7 +142,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task FailedWriteAttemptsToRestoreBothOriginalValuesAfterPartialMutation()
+    public async Task ApplyAsync_WhenWriteFailsAfterPartialMutation_RestoresBothOriginalValues()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 0, appsValue: 0)
@@ -170,7 +170,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task FailedWriteRestoresOriginallyMissingSettingAsAbsent()
+    public async Task ApplyAsync_WhenWriteFailsAndOriginalSettingWasMissing_RestoresItAsAbsent()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: null, appsValue: 0)
@@ -198,7 +198,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task RollbackFailureIsIncludedInDiagnostics()
+    public async Task ApplyAsync_WhenRollbackFails_IncludesFailureInDiagnostics()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 0, appsValue: 0)
@@ -225,7 +225,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task NotificationFailureRestoresOriginalValuesAndReportsFailure()
+    public async Task ApplyAsync_WhenNotificationFails_RestoresOriginalValuesAndReportsFailure()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 0, appsValue: 0);
@@ -249,7 +249,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task NotificationRollbackPreservesSettingsChangedByAnotherActor()
+    public async Task ApplyAsync_WhenAnotherActorChangesSettingsDuringRollback_PreservesExternalChange()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 0, appsValue: 0);
@@ -275,7 +275,7 @@ public sealed class WindowsThemeApplierTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
-    public async Task RejectsUnknownAppearanceWithoutChangingSettings()
+    public async Task ApplyAsync_WhenAppearanceIsUnknown_ThrowsAndDoesNotChangeSettings()
     {
         // Arrange
         var settings = new FakeSettingsStore(systemValue: 1, appsValue: 1);
