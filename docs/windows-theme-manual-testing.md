@@ -7,7 +7,7 @@ The development-only harness invokes the same `WindowsThemeApplier` used by the 
 From the repository root, on Windows with the .NET 10 SDK:
 
 ```powershell
-dotnet build .\\tools\\DynamicDarkMode.ThemeTestHarness\\DynamicDarkMode.ThemeTestHarness.csproj --configuration Release
+dotnet build .\tools\DynamicDarkMode.ThemeTestHarness\DynamicDarkMode.ThemeTestHarness.csproj --configuration Release
 ```
 
 ## Run
@@ -15,8 +15,8 @@ dotnet build .\\tools\\DynamicDarkMode.ThemeTestHarness\\DynamicDarkMode.ThemeTe
 Run the harness from a normal, non-elevated terminal in the disposable test user's session:
 
 ```powershell
-dotnet run --project .\\tools\\DynamicDarkMode.ThemeTestHarness\\DynamicDarkMode.ThemeTestHarness.csproj --configuration Release -- light
-dotnet run --project .\\tools\\DynamicDarkMode.ThemeTestHarness\\DynamicDarkMode.ThemeTestHarness.csproj --configuration Release -- dark
+dotnet run --project .\tools\DynamicDarkMode.ThemeTestHarness\DynamicDarkMode.ThemeTestHarness.csproj --configuration Release -- light
+dotnet run --project .\tools\DynamicDarkMode.ThemeTestHarness\DynamicDarkMode.ThemeTestHarness.csproj --configuration Release -- dark
 ```
 
 The harness accepts exactly one argument: `light` or `dark`. Exit code `0` indicates success; a non-zero exit code indicates failure. A failure includes the original operation error and any errors encountered while attempting to restore the previous settings.
