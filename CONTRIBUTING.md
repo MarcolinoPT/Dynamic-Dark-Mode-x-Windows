@@ -51,6 +51,14 @@ Manual validation is first-class acceptance evidence. Record:
 
 Avoid permanent umbrella implementation issues that accumulate unrelated work. Keep architectural rationale in ADRs, protocol contracts in their documentation, and implementation work in individual vertical-slice issues.
 
+### Iterative planning and ticket readiness
+
+- Always select and review a concrete issue before starting work. The issue is the agreed scope and acceptance contract for its PR.
+- When an issue is completed, review the remaining backlog before selecting the next slice. Reassess priorities, dependencies, implementation state, and approved design decisions; revise stale or oversized issues before they are picked up.
+- Before finishing the current slice, identify at least one concrete next issue and move it to **Ready** in the project workflow. A Ready issue must have a clear goal, bounded scope, known dependencies, testable acceptance criteria, automated test expectations, and relevant manual Gherkin scenarios. It should be actionable without guessing.
+- If no issue is ready, refine or create the smallest suitable issue, or resolve the necessary blocker first. Do not label speculative or dependency-blocked work Ready just to keep the queue populated.
+- Plan iteratively: prepare at least the next slice, not the entire roadmap.
+
 ## Development workflow
 
 1. Confirm the issue is ready and understand its acceptance scenarios and approved design constraints.
