@@ -1,6 +1,6 @@
 # Windows theme application manual testing
 
-The development-only harness invokes the same `WindowsThemeApplier` used by the Windows companion. It runs in the context of the currently signed-in user and does not require the receiver, network listener, pairing, or macOS app.
+The development-only harness invokes `WindowsThemeApplier`, the theme application implementation intended for the Windows companion. The companion does not yet call it. The harness runs in the context of the currently signed-in user and does not require the receiver, network listener, pairing, or macOS app.
 
 ## Build
 
