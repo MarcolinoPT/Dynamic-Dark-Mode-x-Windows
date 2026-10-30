@@ -49,12 +49,17 @@ public sealed class WindowsThemeApplierTests
 
         // Act
         await applier.ApplyAsync(appearance: ThemeAppearance.Light);
+        int writeCount = settings.WriteCount;
+        int? systemValue = settings.Read(valueName: SystemUsesLightTheme);
+        int? appsValue = settings.Read(valueName: AppsUseLightTheme);
+        int notificationCount = notifier.CallCount;
 
         // Assert
-        settings.WriteCount.ShouldBe(1);
-        settings.Read(SystemUsesLightTheme).ShouldBe(1);
-        settings.Read(AppsUseLightTheme).ShouldBe(1);
-        notifier.CallCount.ShouldBe(1);
+        systemValue.ShouldSatisfyAllConditions(
+            () => writeCount.ShouldBe(1),
+            () => systemValue.ShouldBe(1),
+            () => appsValue.ShouldBe(1),
+            () => notificationCount.ShouldBe(1));
     }
 
     [Fact]
@@ -68,10 +73,13 @@ public sealed class WindowsThemeApplierTests
 
         // Act
         await applier.ApplyAsync(appearance: ThemeAppearance.Dark);
+        int writeCount = settings.WriteCount;
+        int notificationCount = notifier.CallCount;
 
         // Assert
-        settings.WriteCount.ShouldBe(0);
-        notifier.CallCount.ShouldBe(0);
+        writeCount.ShouldSatisfyAllConditions(
+            () => writeCount.ShouldBe(0),
+            () => notificationCount.ShouldBe(0));
     }
 
     [Fact]
@@ -81,17 +89,19 @@ public sealed class WindowsThemeApplierTests
         // Arrange
         using var firstWriteEntered = new ManualResetEventSlim();
         using var releaseFirstWrite = new ManualResetEventSlim();
+        using var secondReadEntered = new ManualResetEventSlim();
         var settings = new FakeSettingsStore(systemValue: 0, appsValue: 0)
         {
             FirstWriteEntered = firstWriteEntered,
-            ReleaseFirstWrite = releaseFirstWrite
+            ReleaseFirstWrite = releaseFirstWrite,
+            SecondReadEntered = secondReadEntered
         };
         var notifier = new FakeNotifier();
         var applier = new WindowsThemeApplier(settingsStore: settings, notifier: notifier);
 
         // Act
         Task first = Task.Run(async () => await applier.ApplyAsync(ThemeAppearance.Light));
-        firstWriteEntered.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue();
+        bool firstWriteWasEntered = firstWriteEntered.Wait(TimeSpan.FromSeconds(5));
 
         using var secondStarted = new ManualResetEventSlim();
         Task second = Task.Run(async () =>
@@ -100,27 +110,34 @@ public sealed class WindowsThemeApplierTests
             await applier.ApplyAsync(ThemeAppearance.Dark);
         });
 
+        bool secondWasStarted;
+        bool secondReadWhileFirstHeldMutex;
         try
         {
-            secondStarted.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue();
-            await Task.Delay(150);
-
-            // The second operation must not even read the settings while the
-            // first operation owns the per-user mutex.
-            settings.ReadCount.ShouldBe(2);
+            secondWasStarted = secondStarted.Wait(TimeSpan.FromSeconds(5));
+            secondReadWhileFirstHeldMutex = secondReadEntered.Wait(TimeSpan.FromMilliseconds(150));
         }
         finally
         {
             releaseFirstWrite.Set();
         }
 
-        await Task.WhenAll(first, second);
+        Exception? operationException = await Record.ExceptionAsync(async () => await Task.WhenAll(first, second));
+        int? finalSystemValue = settings.Read(valueName: SystemUsesLightTheme);
+        int? finalAppsValue = settings.Read(valueName: AppsUseLightTheme);
+        int notificationCount = notifier.CallCount;
+        bool firstWriteWaitSucceeded = settings.FirstWriteWaitSucceeded;
 
-        // Assert: the second operation runs after the first and leaves a
-        // consistent final appearance.
-        settings.Read(SystemUsesLightTheme).ShouldBe(0);
-        settings.Read(AppsUseLightTheme).ShouldBe(0);
-        notifier.CallCount.ShouldBe(2);
+        // Assert
+        operationException.ShouldSatisfyAllConditions(
+            () => operationException.ShouldBeNull(),
+            () => firstWriteWasEntered.ShouldBeTrue(),
+            () => secondWasStarted.ShouldBeTrue(),
+            () => secondReadWhileFirstHeldMutex.ShouldBeFalse(),
+            () => firstWriteWaitSucceeded.ShouldBeTrue(),
+            () => finalSystemValue.ShouldBe(0),
+            () => finalAppsValue.ShouldBe(0),
+            () => notificationCount.ShouldBe(2));
     }
 
     [Fact]
@@ -137,14 +154,18 @@ public sealed class WindowsThemeApplierTests
         var applier = new WindowsThemeApplier(settingsStore: settings, notifier: notifier);
 
         // Act
-        ThemeApplicationException? exception = await Record.ExceptionAsync(
-            () => applier.ApplyAsync(appearance: ThemeAppearance.Light)) as ThemeApplicationException;
+        Exception? exception = await Record.ExceptionAsync(
+            () => applier.ApplyAsync(appearance: ThemeAppearance.Light));
+        int? systemValue = settings.Read(valueName: SystemUsesLightTheme);
+        int? appsValue = settings.Read(valueName: AppsUseLightTheme);
+        int notificationCount = notifier.CallCount;
 
         // Assert
-        exception.ShouldNotBeNull();
-        settings.Read(SystemUsesLightTheme).ShouldBe(0);
-        settings.Read(AppsUseLightTheme).ShouldBe(0);
-        notifier.CallCount.ShouldBe(0);
+        exception.ShouldSatisfyAllConditions(
+            () => exception.ShouldBeOfType<ThemeApplicationException>(),
+            () => systemValue.ShouldBe(0),
+            () => appsValue.ShouldBe(0),
+            () => notificationCount.ShouldBe(0));
     }
 
     [Fact]
@@ -160,14 +181,19 @@ public sealed class WindowsThemeApplierTests
         var applier = new WindowsThemeApplier(settingsStore: settings, notifier: notifier);
 
         // Act
-        ThemeApplicationException? exception = await Record.ExceptionAsync(
-            () => applier.ApplyAsync(ThemeAppearance.Light)) as ThemeApplicationException;
+        Exception? exception = await Record.ExceptionAsync(
+            () => applier.ApplyAsync(appearance: ThemeAppearance.Light));
+        ThemeApplicationException? themeException = exception as ThemeApplicationException;
+        int? systemValue = settings.Read(valueName: SystemUsesLightTheme);
+        int? appsValue = settings.Read(valueName: AppsUseLightTheme);
+        IReadOnlyCollection<Exception>? recoveryExceptions = themeException?.RecoveryExceptions;
 
         // Assert
-        exception.ShouldNotBeNull();
-        settings.Read(SystemUsesLightTheme).ShouldBeNull();
-        settings.Read(AppsUseLightTheme).ShouldBe(0);
-        exception.RecoveryExceptions.ShouldBeEmpty();
+        exception.ShouldSatisfyAllConditions(
+            () => exception.ShouldBeOfType<ThemeApplicationException>(),
+            () => systemValue.ShouldBeNull(),
+            () => appsValue.ShouldBe(0),
+            () => recoveryExceptions.ShouldBeEmpty());
     }
 
     [Fact]
@@ -185,12 +211,16 @@ public sealed class WindowsThemeApplierTests
         var applier = new WindowsThemeApplier(settingsStore: settings, notifier: notifier);
 
         // Act
-        ThemeApplicationException? exception = await Record.ExceptionAsync(
-            () => applier.ApplyAsync(ThemeAppearance.Light)) as ThemeApplicationException;
+        Exception? exception = await Record.ExceptionAsync(
+            () => applier.ApplyAsync(appearance: ThemeAppearance.Light));
+        ThemeApplicationException? themeException = exception as ThemeApplicationException;
+        IReadOnlyCollection<Exception>? recoveryExceptions = themeException?.RecoveryExceptions;
 
         // Assert
-        exception.ShouldNotBeNull();
-        exception.RecoveryExceptions.Count.ShouldBeGreaterThan(0);
+        exception.ShouldSatisfyAllConditions(
+            () => exception.ShouldBeOfType<ThemeApplicationException>(),
+            () => recoveryExceptions.ShouldNotBeNull(),
+            () => recoveryExceptions!.Count.ShouldBeGreaterThan(0));
     }
 
     [Fact]
@@ -203,14 +233,18 @@ public sealed class WindowsThemeApplierTests
         var applier = new WindowsThemeApplier(settingsStore: settings, notifier: notifier);
 
         // Act
-        ThemeApplicationException? exception = await Record.ExceptionAsync(
-            () => applier.ApplyAsync(ThemeAppearance.Light)) as ThemeApplicationException;
+        Exception? exception = await Record.ExceptionAsync(
+            () => applier.ApplyAsync(appearance: ThemeAppearance.Light));
+        int? systemValue = settings.Read(valueName: SystemUsesLightTheme);
+        int? appsValue = settings.Read(valueName: AppsUseLightTheme);
+        int notificationCount = notifier.CallCount;
 
         // Assert
-        exception.ShouldNotBeNull();
-        settings.Read(SystemUsesLightTheme).ShouldBe(0);
-        settings.Read(AppsUseLightTheme).ShouldBe(0);
-        notifier.CallCount.ShouldBe(2);
+        exception.ShouldSatisfyAllConditions(
+            () => exception.ShouldBeOfType<ThemeApplicationException>(),
+            () => systemValue.ShouldBe(0),
+            () => appsValue.ShouldBe(0),
+            () => notificationCount.ShouldBe(2));
     }
 
     [Fact]
@@ -227,13 +261,16 @@ public sealed class WindowsThemeApplierTests
         var applier = new WindowsThemeApplier(settingsStore: settings, notifier: notifier);
 
         // Act
-        ThemeApplicationException? exception = await Record.ExceptionAsync(
-            () => applier.ApplyAsync(ThemeAppearance.Light)) as ThemeApplicationException;
+        Exception? exception = await Record.ExceptionAsync(
+            () => applier.ApplyAsync(appearance: ThemeAppearance.Light));
+        int? systemValue = settings.Read(valueName: SystemUsesLightTheme);
+        int? appsValue = settings.Read(valueName: AppsUseLightTheme);
 
         // Assert
-        exception.ShouldNotBeNull();
-        settings.Read(SystemUsesLightTheme).ShouldBe(7);
-        settings.Read(AppsUseLightTheme).ShouldBe(0);
+        exception.ShouldSatisfyAllConditions(
+            () => exception.ShouldBeOfType<ThemeApplicationException>(),
+            () => systemValue.ShouldBe(7),
+            () => appsValue.ShouldBe(0));
     }
 
     [Fact]
@@ -248,10 +285,14 @@ public sealed class WindowsThemeApplierTests
         // Act
         Exception? exception = await Record.ExceptionAsync(
             () => applier.ApplyAsync(appearance: ThemeAppearance.Unknown));
+        int writeCount = settings.WriteCount;
+        int notificationCount = notifier.CallCount;
 
         // Assert
-        exception.ShouldBeOfType<ArgumentOutOfRangeException>();
-        settings.WriteCount.ShouldBe(0);
+        exception.ShouldSatisfyAllConditions(
+            () => exception.ShouldBeOfType<ArgumentOutOfRangeException>(),
+            () => writeCount.ShouldBe(0),
+            () => notificationCount.ShouldBe(0));
     }
 
     private sealed class FakeSettingsStore(int? systemValue, int? appsValue) : IWindowsThemeSettingsStore
@@ -274,13 +315,22 @@ public sealed class WindowsThemeApplierTests
 
         public ManualResetEventSlim? ReleaseFirstWrite { get; init; }
 
+        public ManualResetEventSlim? SecondReadEntered { get; init; }
+
+        public bool FirstWriteWaitSucceeded { get; private set; }
+
         public int ReadCount => Volatile.Read(ref _readCount);
 
         public int WriteCount => Volatile.Read(ref _writeCount);
 
         public int? Read(string valueName)
         {
-            Interlocked.Increment(ref _readCount);
+            int readCount = Interlocked.Increment(ref _readCount);
+            if (readCount > 2)
+            {
+                SecondReadEntered?.Set();
+            }
+
             lock (_gate)
             {
                 return _values[valueName];
@@ -293,7 +343,7 @@ public sealed class WindowsThemeApplierTests
             if (writeCount == 1 && FirstWriteEntered is not null && ReleaseFirstWrite is not null)
             {
                 FirstWriteEntered.Set();
-                ReleaseFirstWrite.Wait(TimeSpan.FromSeconds(5)).ShouldBeTrue();
+                FirstWriteWaitSucceeded = ReleaseFirstWrite.Wait(TimeSpan.FromSeconds(5));
             }
 
             bool shouldFail = FailWrite?.Invoke(valueName, value, writeCount) == true;
