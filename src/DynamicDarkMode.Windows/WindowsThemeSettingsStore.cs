@@ -5,7 +5,7 @@ namespace DynamicDarkMode.Windows;
 internal sealed class WindowsThemeSettingsStore : IWindowsThemeSettingsStore
 {
     private const string PersonalizeKeyPath =
-        @"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+        @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
     public int? Read(string valueName)
     {
