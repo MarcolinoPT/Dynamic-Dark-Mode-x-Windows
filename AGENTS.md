@@ -48,6 +48,11 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 
 - Keep changes minimal, readable, and consistent with the surrounding code and target frameworks.
 - Add or update automated tests for changed behaviour and regression fixes. Include malformed-input and boundary cases when relevant.
+- Name tests using the three-part pattern `MethodUnderTest_StateUnderTest_ExpectedBehavior`: identify the method or operation being tested, the scenario or relevant state, and the observable expected outcome.
+- Use the public method or operation name where practical (for example, `ApplyAsync`), followed by a concise scenario and expected behaviour. Prefer names that explain the contract rather than implementation details.
+- Examples: `ApplyAsync_WhenAppearanceIsAlreadyActive_DoesNotWriteOrNotify`, `ApplyAsync_WhenSettingsWriteFails_RestoresOriginalValues`, and `ApplyAsync_WhenAppearanceIsUnknown_ThrowsArgumentOutOfRangeException`.
+- For parameterized tests, use one descriptive method name that covers the cases represented by the test data; do not encode individual parameter values into the method name unless they represent materially different scenarios.
+- Keep names concise and specific. If the three-part pattern makes a test name awkward, clarify the test's behaviour rather than mechanically adding words.
 - Structure tests clearly with Arrange, Act, and Assert sections.
 - Keep assertions in the test itself, where the test's behaviour and expectations are visible. Test helpers should arrange fixtures or capture and return values; they must not perform assertions or hide test expectations.
 - Capture all values needed for verification during the Act phase, then assert them together in the Assert phase.
