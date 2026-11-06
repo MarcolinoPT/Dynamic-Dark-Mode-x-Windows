@@ -10,10 +10,11 @@ internal sealed class WindowsThemeApplier : IThemeApplier
 {
     private const string SystemUsesLightTheme = "SystemUsesLightTheme";
     private const string AppsUseLightTheme = "AppsUseLightTheme";
-    private const string MutexNamePrefix = @"Local\DynamicDarkMode.ThemeApplication.";
+    private const string MutexNamePrefix = @"Global\DynamicDarkMode.ThemeApplication.";
 
     private readonly IWindowsThemeSettingsStore _settingsStore;
     private readonly IWindowsSettingChangeNotifier _notifier;
+    private readonly Action? _onMutexContended;
 
     public WindowsThemeApplier()
         : this(
@@ -24,10 +25,12 @@ internal sealed class WindowsThemeApplier : IThemeApplier
 
     internal WindowsThemeApplier(
         IWindowsThemeSettingsStore settingsStore,
-        IWindowsSettingChangeNotifier notifier)
+        IWindowsSettingChangeNotifier notifier,
+        Action? onMutexContended = null)
     {
         _settingsStore = settingsStore;
         _notifier = notifier;
+        _onMutexContended = onMutexContended;
     }
 
     public Task ApplyAsync(
@@ -58,7 +61,17 @@ internal sealed class WindowsThemeApplier : IThemeApplier
         {
             try
             {
-                mutex.WaitOne();
+                if (!mutex.WaitOne(millisecondsTimeout: 0))
+                {
+                    _onMutexContended?.Invoke();
+                    int signaledIndex = WaitHandle.WaitAny(
+                        waitHandles: new WaitHandle[] { mutex, cancellationToken.WaitHandle });
+                    if (signaledIndex == 1)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
+                    }
+                }
+
                 ownsMutex = true;
             }
             catch (AbandonedMutexException)
@@ -110,12 +123,24 @@ internal sealed class WindowsThemeApplier : IThemeApplier
         }
         catch (Exception writeException)
         {
-            IReadOnlyCollection<Exception> recoveryExceptions = RestoreOriginalSettings(
+            List<Exception> recoveryExceptions = RestoreOriginalSettings(
                 originalSystemValue,
                 originalAppsValue,
                 requestedValue,
                 systemWriteAttempted,
-                appsWriteAttempted);
+                appsWriteAttempted).ToList();
+
+            if (systemWriteAttempted || appsWriteAttempted)
+            {
+                try
+                {
+                    _notifier.BroadcastThemeChanged();
+                }
+                catch (Exception recoveryNotificationException)
+                {
+                    recoveryExceptions.Add(recoveryNotificationException);
+                }
+            }
 
             throw new ThemeApplicationException(
                 message: "Windows rejected the requested theme settings. Restoration of the original values was attempted.",
@@ -192,6 +217,10 @@ internal sealed class WindowsThemeApplier : IThemeApplier
 
         try
         {
+            // This read-then-write is best-effort, not atomic. An external writer
+            // that does not coordinate through this mutex can change the value
+            // between these operations; the settings-store contract has no
+            // conditional restore operation.
             // Do not overwrite a value that no longer matches what this
             // operation attempted to apply.
             if (_settingsStore.Read(valueName) == requestedValue)
