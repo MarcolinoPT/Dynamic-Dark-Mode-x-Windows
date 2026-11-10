@@ -68,7 +68,7 @@ internal sealed class WindowsThemeApplier : IThemeApplier
                         waitHandles: new WaitHandle[] { mutex, cancellationToken.WaitHandle });
                     if (signaledIndex == 1)
                     {
-                        throw new OperationCanceledException(cancellationToken);
+                        throw new OperationCanceledException(token: cancellationToken);
                     }
                 }
 
@@ -124,11 +124,11 @@ internal sealed class WindowsThemeApplier : IThemeApplier
         catch (Exception writeException)
         {
             List<Exception> recoveryExceptions = RestoreOriginalSettings(
-                originalSystemValue,
-                originalAppsValue,
-                requestedValue,
-                systemWriteAttempted,
-                appsWriteAttempted).ToList();
+                originalSystemValue: originalSystemValue,
+                originalAppsValue: originalAppsValue,
+                requestedValue: requestedValue,
+                systemWriteAttempted: systemWriteAttempted,
+                appsWriteAttempted: appsWriteAttempted).ToList();
 
             if (systemWriteAttempted || appsWriteAttempted)
             {
