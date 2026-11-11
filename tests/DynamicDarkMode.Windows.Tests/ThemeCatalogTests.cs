@@ -61,7 +61,7 @@ public sealed class ThemeCatalogTests
             DisplayName=Resource directory theme
 
             [VisualStyles]
-            Path=%ResourceDir%\\Themes\\Aero\\Aero.msstyles
+            Path=%ResourceDir%\Themes\Aero\Aero.msstyles
             ColorStyle=NormalColor
             """;
 
@@ -265,7 +265,7 @@ public sealed class ThemeCatalogTests
         ];
         ThemeManagerEntry[] managerEntries =
         [
-            new(4, "Same", stylePath, "NormalColor", false)
+            new(EnumerationIndex: 4, DisplayName: "Same", VisualStylePath: stylePath, ColorStyle: "NormalColor", IsDisabled: false)
         ];
 
         // Act
