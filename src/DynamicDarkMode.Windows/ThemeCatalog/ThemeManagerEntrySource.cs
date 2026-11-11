@@ -11,11 +11,14 @@ internal sealed record ThemeManagerEntry(
 
 internal interface IThemeManagerEntrySource
 {
+    /// <summary>Returns the entries exposed by the current Windows theme manager.</summary>
     IReadOnlyList<ThemeManagerEntry> GetEntries();
 }
 
 internal sealed class WindowsThemeManagerEntrySource : IThemeManagerEntrySource
 {
+    /// <summary>Enumerates theme-manager entries on a dedicated single-threaded apartment.</summary>
+    /// <returns>The current theme-manager entries with their transient enumeration indices.</returns>
     public IReadOnlyList<ThemeManagerEntry> GetEntries()
     {
         IReadOnlyList<ThemeManagerEntry>? entries = null;
@@ -148,8 +151,11 @@ internal enum ThemeManagerInitializationFlags
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IWindowsThemeEntry
 {
+    /// <summary>Gets or sets the theme's display name.</summary>
     string DisplayName { get; set; }
+    /// <summary>Gets or sets the first VisualStyles path exposed by the theme manager.</summary>
     string VisualStyle1 { get; set; }
+    /// <summary>Gets or sets the VisualStyles color-style identifier exposed by the theme manager.</summary>
     string VisualStyle2 { get; set; }
 }
 
@@ -158,14 +164,23 @@ internal interface IWindowsThemeEntry
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IThemeManager2
 {
+    /// <summary>Initializes the theme manager with the requested enumeration flags.</summary>
     void Init(ThemeManagerInitializationFlags initFlags);
+    /// <summary>Starts asynchronous theme-manager initialization.</summary>
     void InitAsync(IntPtr hwnd, int unknown);
+    /// <summary>Refreshes the theme manager's current theme list.</summary>
     void Refresh();
+    /// <summary>Starts an asynchronous refresh operation.</summary>
     void RefreshAsync(IntPtr hwnd, int unknown);
+    /// <summary>Signals completion of an asynchronous refresh operation.</summary>
     void RefreshComplete();
+    /// <summary>Returns the number of entries currently exposed by the theme manager.</summary>
     void GetThemeCount(out int count);
+    /// <summary>Retrieves the theme metadata at a transient enumeration position.</summary>
     void GetTheme(int index, out IWindowsThemeEntry theme);
+    /// <summary>Reports whether the entry at the specified position is disabled.</summary>
     void IsThemeDisabled(int index, out int disabled);
+    /// <summary>Returns the current theme's transient enumeration position.</summary>
     void GetCurrentTheme(out int index);
 }
 
