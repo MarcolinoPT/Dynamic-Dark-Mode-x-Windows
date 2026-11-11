@@ -7,6 +7,8 @@ internal sealed record WindowsThemeSearchPaths(
     string SharedThemesDirectory,
     string UserThemesDirectory)
 {
+    /// <summary>Builds the standard Windows, shared, and current-user theme search locations.</summary>
+    /// <returns>The resolved filesystem roots used by theme discovery.</returns>
     public static WindowsThemeSearchPaths CreateDefault()
     {
         string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
@@ -47,6 +49,8 @@ internal sealed class WindowsThemeFileDiscovery(WindowsThemeSearchPaths searchPa
     private readonly WindowsThemeSearchPaths _searchPaths =
         searchPaths ?? throw new ArgumentNullException(nameof(searchPaths));
 
+    /// <summary>Recursively enumerates theme packages beneath the configured search roots.</summary>
+    /// <returns>Distinct, normalized paths to discovered <c>.theme</c> files.</returns>
     public IReadOnlyList<string> EnumerateThemeFiles()
     {
         string[] roots =
@@ -73,7 +77,8 @@ internal sealed class WindowsThemeFileDiscovery(WindowsThemeSearchPaths searchPa
                     {
                         RecurseSubdirectories = true,
                         IgnoreInaccessible = true,
-                        ReturnSpecialDirectories = false
+                        ReturnSpecialDirectories = false,
+                        AttributesToSkip = FileAttributes.None
                     }))
                 {
                     try
@@ -100,6 +105,9 @@ internal sealed class WindowsThemeFileDiscovery(WindowsThemeSearchPaths searchPa
         return discovered.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
+    /// <summary>Determines whether a package belongs to a known High Contrast location or style.</summary>
+    /// <param name="metadata">Parsed metadata for the theme package.</param>
+    /// <returns><see langword="true"/> when the package is conservatively classified as High Contrast.</returns>
     public bool IsHighContrastTheme(ThemeFileMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
@@ -110,6 +118,9 @@ internal sealed class WindowsThemeFileDiscovery(WindowsThemeSearchPaths searchPa
             || IsAeroLiteStyle(metadata.VisualStylePath);
     }
 
+    /// <summary>Determines whether a package is located in the built-in Windows themes directory.</summary>
+    /// <param name="metadata">Parsed metadata for the theme package.</param>
+    /// <returns><see langword="true"/> when the package is within the system themes root.</returns>
     public bool IsBuiltInTheme(ThemeFileMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
