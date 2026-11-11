@@ -41,6 +41,75 @@ public sealed class ThemeCatalogTests
 
     [Fact]
     [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    public void ParserResolvesResourceDirToWindowsResourcesDirectoryAndMatcherUsesResolvedPath()
+    {
+        // Arrange
+        string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        string resourceDirectory = Environment.GetEnvironmentVariable("ResourceDir")
+            ?? Path.Combine(windowsDirectory, "Resources");
+        string expectedStylePath = Path.GetFullPath(Path.Combine(
+            resourceDirectory,
+            "Themes",
+            "Aero",
+            "Aero.msstyles"));
+        var parser = new ThemeFileParser(new PassthroughIndirectStringResolver());
+        string filePath = Path.Combine(Path.GetTempPath(), "Themes", "ResourceDir.theme");
+        const string content = """
+            [Theme]
+            DisplayName=Resource directory theme
+
+            [VisualStyles]
+            Path=%ResourceDir%\\Themes\\Aero\\Aero.msstyles
+            ColorStyle=NormalColor
+            """;
+
+        // Act
+        ThemeFileMetadata metadata = parser.ParseContent(filePath, content);
+        IReadOnlyList<WindowsThemeDescriptor> result = ThemeCatalogMatcher.Match(
+            [metadata],
+            [
+                new ThemeManagerEntry(
+                    EnumerationIndex: 5,
+                    DisplayName: "Resource directory theme",
+                    VisualStylePath: expectedStylePath,
+                    ColorStyle: "NormalColor",
+                    IsDisabled: false)
+            ],
+            _ => false);
+
+        // Assert
+        metadata.VisualStylePath.ShouldBe(expectedStylePath);
+        result.Single().MatchStatus.ShouldBe(ThemeManagerMatchStatus.Matched);
+    }
+
+    [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    public void VisualStylePathNormalizationHonorsExplicitResourceDirEnvironmentValue()
+    {
+        // Arrange
+        string configuredResourceDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "Configured Windows Resources");
+        const string value = "%ResourceDir%\\Themes\\Custom.msstyles";
+
+        // Act
+        string? result = ThemeVisualStylePath.Normalize(
+            value,
+            windowsDirectory: Path.GetTempPath(),
+            getEnvironmentVariable: name =>
+                string.Equals(name, "ResourceDir", StringComparison.OrdinalIgnoreCase)
+                    ? configuredResourceDirectory
+                    : null);
+
+        // Assert
+        result.ShouldBe(Path.GetFullPath(Path.Combine(
+            configuredResourceDirectory,
+            "Themes",
+            "Custom.msstyles")));
+    }
+
+    [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
     public void ParserResolvesIndirectDisplayName()
     {
         // Arrange
@@ -167,8 +236,8 @@ public sealed class ThemeCatalogTests
         ];
         ThemeManagerEntry[] managerEntries =
         [
-            new(2, "Same", stylePath, "NormalColor", false),
-            new(7, "Same", stylePath, "NormalColor", false)
+            new(EnumerationIndex: 2, DisplayName: "Same", VisualStylePath: stylePath, ColorStyle: "NormalColor", IsDisabled: false),
+            new(EnumerationIndex: 7, DisplayName: "Same", VisualStylePath: stylePath, ColorStyle: "NormalColor", IsDisabled: false)
         ];
 
         // Act
@@ -224,7 +293,7 @@ public sealed class ThemeCatalogTests
         };
         ThemeManagerEntry[] managerEntries =
         [
-            new(4, "One", stylePath, "NormalColor", false)
+            new(EnumerationIndex: 4, DisplayName: "One", VisualStylePath: stylePath, ColorStyle: "NormalColor", IsDisabled: false)
         ];
 
         // Act
@@ -251,8 +320,8 @@ public sealed class ThemeCatalogTests
         ];
         ThemeManagerEntry[] managerEntries =
         [
-            new(4, "Relative", Path.Combine(Environment.CurrentDirectory, "Aero", "Aero.msstyles"),
-                "NormalColor", false)
+            new(EnumerationIndex: 4, DisplayName: "Relative", VisualStylePath: Path.Combine(Environment.CurrentDirectory, "Aero", "Aero.msstyles"),
+                ColorStyle: "NormalColor", IsDisabled: false)
         ];
 
         // Act
@@ -277,7 +346,7 @@ public sealed class ThemeCatalogTests
         ];
         ThemeManagerEntry[] managerEntries =
         [
-            new(4, "One", stylePath, "NormalColor", true)
+            new(EnumerationIndex: 4, DisplayName: "One", VisualStylePath: stylePath, ColorStyle: "NormalColor", IsDisabled: true)
         ];
 
         // Act
@@ -335,6 +404,15 @@ public sealed class ThemeCatalogTests
             File.WriteAllText(file, $"[Theme]{Environment.NewLine}DisplayName=Example");
         }
 
+        string hiddenDirectory = Path.Combine(user, "Hidden");
+        Directory.CreateDirectory(hiddenDirectory);
+        string hiddenTheme = Path.Combine(hiddenDirectory, "Hidden.theme");
+        string systemTheme = Path.Combine(shared, "System.theme");
+        File.WriteAllText(hiddenTheme, "[Theme]\\nDisplayName=Hidden");
+        File.WriteAllText(systemTheme, "[Theme]\\nDisplayName=System");
+        File.SetAttributes(hiddenDirectory, File.GetAttributes(hiddenDirectory) | FileAttributes.Hidden);
+        File.SetAttributes(systemTheme, File.GetAttributes(systemTheme) | FileAttributes.System);
+
         var paths = new WindowsThemeSearchPaths(
             WindowsDirectory: Path.Combine(root, "Windows"),
             SystemThemesDirectory: system,
@@ -350,12 +428,25 @@ public sealed class ThemeCatalogTests
             IReadOnlyList<string> discovered = discovery.EnumerateThemeFiles();
 
             // Assert
-            discovered.OrderBy(item => item, StringComparer.OrdinalIgnoreCase).ToArray()
-                .SequenceEqual(expectedFiles.OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
-                .ShouldBeTrue();
+            discovered.ShouldContain(Path.GetFullPath(hiddenTheme));
+            discovered.ShouldContain(Path.GetFullPath(systemTheme));
+            discovered.ShouldContain(Path.GetFullPath(expectedFiles[0]));
+            discovered.ShouldContain(Path.GetFullPath(expectedFiles[1]));
+            discovered.ShouldContain(Path.GetFullPath(expectedFiles[2]));
+            discovered.ShouldNotContain(Path.GetFullPath(Path.Combine(easeOfAccess, "Contrast.theme")));
         }
         finally
         {
+            if (File.Exists(systemTheme))
+            {
+                File.SetAttributes(systemTheme, FileAttributes.Normal);
+            }
+
+            if (Directory.Exists(hiddenDirectory))
+            {
+                File.SetAttributes(hiddenDirectory, FileAttributes.Normal);
+            }
+
             Directory.Delete(root, recursive: true);
         }
     }
@@ -415,8 +506,8 @@ public sealed class ThemeCatalogTests
         ];
         ThemeManagerEntry[] managerEntries =
         [
-            new(8, "Same name", secondStyle, "NormalColor", false),
-            new(2, "Same name", firstStyle, "NormalColor", false)
+            new(EnumerationIndex: 8, DisplayName: "Same name", VisualStylePath: secondStyle, ColorStyle: "NormalColor", IsDisabled: false),
+            new(EnumerationIndex: 2, DisplayName: "Same name", VisualStylePath: firstStyle, ColorStyle: "NormalColor", IsDisabled: false)
         ];
 
         // Act
