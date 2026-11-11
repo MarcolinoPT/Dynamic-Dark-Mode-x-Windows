@@ -12,7 +12,7 @@ The catalog recursively searches for `.theme` files under:
 - `%ProgramData%\Microsoft\Windows\Themes` — shared theme packages, when present.
 - `%LOCALAPPDATA%\Microsoft\Windows\Themes` — current-user theme packages.
 
-Inaccessible directories and malformed filesystem entries are skipped. The result reports how many discovered files could not be parsed. The Ease of Access Themes directory is not a discovery root.
+Inaccessible directories and malformed filesystem entries are skipped. Hidden and system entries are included so installed packages are not silently omitted because of filesystem attributes. The result reports how many discovered files could not be parsed. The Ease of Access Themes directory is not a discovery root.
 
 ## Metadata and display names
 
@@ -20,7 +20,7 @@ The parser reads the `[Theme]` `DisplayName` value and the `[VisualStyles]` `Pat
 
 Indirect display-name resources (for example, `@%SystemRoot%\...`) are resolved with the Windows `SHLoadIndirectString` API. If resolution fails, the descriptor retains the original resource reference and uses the file name as a display fallback. **A fallback name is not considered resolved and is never used to correlate a package with a COM entry.**
 
-Visual-style paths are environment-expanded and normalized before comparison.
+Visual-style paths are environment-expanded and normalized before comparison. `%ResourceDir%` resolves to the configured `ResourceDir` environment variable when present, or to the `Resources` directory beneath the Windows installation directory when the variable is absent. The parser and matcher use the same normalization so theme-file and theme-manager paths are compared consistently.
 
 ## Application-owned identity
 
