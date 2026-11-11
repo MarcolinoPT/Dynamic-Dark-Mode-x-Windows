@@ -32,6 +32,8 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 
 ## Git and commit conventions
 
+- Use one worktree for each active task or pull request. Keep each worktree and pull request focused on one vertical slice; do not bundle unrelated work.
+- Keep the designated project coordination conversation as the source of truth for priorities, decisions, and worktree tracking. When project work spans multiple conversations, bring material decisions and status back to that conversation.
 - Create a focused branch from the default branch for each independent change. Follow existing branch naming patterns such as `feat/short-description`, `fix/short-description`, and `docs/short-description`.
 - Use Conventional Commit-style messages with a concise imperative description and an issue reference when one exists:
   - `feat(protocol): add strict message validation (#10)`
@@ -42,7 +44,7 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 - Do not invent issue numbers. If no relevant issue exists, omit the issue reference and recommend creating/linking an issue when the work warrants one.
 - Use `Fixes #N` in a PR description only when the PR fully resolves that issue. Use `Refs #N` or `(#N)` for related work that does not close it.
 - Never amend, force-push, or rewrite shared history unless explicitly requested.
-- Never push commits, create a PR, or merge a PR unless the user explicitly authorizes that action. Never merge a PR merely because CI is green.
+- Never push commits, create a PR, merge or close a PR, or change an issue's state unless the user explicitly authorizes that action. Never merge a PR merely because CI is green.
 
 ## Implementation and testing
 
@@ -53,7 +55,26 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 - Capture all values needed for verification during the Act phase, then assert them together in the Assert phase.
 - Use at most one `ShouldSatisfyAllConditions` call per test. Put the test's independent assertions in that single holistic assertion block so one failure does not prevent the remaining checks from running. If a coherent holistic assertion block is awkward or the checks represent distinct behaviours, split the test rather than adding multiple holistic assertion blocks.
 - For expected failures, capture the exception and other resulting state during Act, then assert the exception type and state together in the test's holistic assertion block.
-- Run the narrowest relevant tests first, then applicable build/test commands. Report the commands run and their actual results; never claim tests passed if they were not run or CI has not completed.
+- During development, run the affected test project after each coherent change and rely on normal incremental builds for fast feedback. Do not require a full solution build after every small edit.
+- Run independent test assemblies in parallel when the runner supports it, host constraints allow it, and tests do not share mutable resources. Before enabling project-level parallelism in CI, verify the runner's behavior, check isolation of OS-level state, and compare timings; do not add blanket parallelism flags without evidence.
+- Run the complete Release solution build and all solution tests before reporting a .NET slice complete. The Windows test project targets Windows and includes Current User certificate-store tests, so the full test gate must run on Windows; report local and CI results accurately.
+
+The current .NET validation commands are:
+
+```powershell
+# Fast feedback for Core changes; supported on .NET 10 hosts.
+dotnet test tests/DynamicDarkMode.Core.Tests/DynamicDarkMode.Core.Tests.csproj --configuration Release
+
+# Windows companion tests; run on Windows.
+dotnet test tests/DynamicDarkMode.Windows.Tests/DynamicDarkMode.Windows.Tests.csproj --configuration Release
+
+# Full .NET pull-request gate; run on Windows.
+dotnet restore DynamicDarkMode.Windows.sln
+dotnet build DynamicDarkMode.Windows.sln --configuration Release --no-restore
+dotnet test DynamicDarkMode.Windows.sln --configuration Release --no-build
+```
+
+- Report the commands run and their actual results; never claim tests passed if they were not run or CI has not completed.
 - Review the final diff for accidental changes, generated files, secrets, formatting problems, and unrelated edits.
 - Treat CI failures as blockers until understood. Fix the cause rather than weakening or skipping a check merely to get a green build.
 
@@ -77,5 +98,6 @@ These instructions apply to the whole repository unless a more specific `AGENTS.
 - Use the repository PR template. Explain the problem, approach, issue links, scope, tests, and security/compatibility implications.
 - Triage all substantive review feedback, including AI-generated comments. Verify suggestions against code, tests, requirements, and project design; do not apply them blindly.
 - Address valid findings or explain clearly why they are not applicable. Include nitpicks when they affect correctness, maintainability, or the requested review scope.
+- Do not resolve AI reviewer threads yourself; the reviewer who opened a thread must resolve it. Reply to reviewer feedback when appropriate, then allow the reviewer to reassess and resolve the thread.
 - Keep the PR description accurate as the branch evolves, including final CI results before requesting merge.
 - The human maintainer owns final decisions and merge approval.
