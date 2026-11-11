@@ -45,8 +45,10 @@ public sealed class ThemeCatalogTests
     {
         // Arrange
         string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        string resourceDirectory = Environment.GetEnvironmentVariable("ResourceDir")
-            ?? Path.Combine(windowsDirectory, "Resources");
+        string? configuredResourceDirectory = Environment.GetEnvironmentVariable("ResourceDir");
+        string resourceDirectory = string.IsNullOrWhiteSpace(configuredResourceDirectory)
+            ? Path.Combine(windowsDirectory, "Resources")
+            : configuredResourceDirectory;
         string expectedStylePath = Path.GetFullPath(Path.Combine(
             resourceDirectory,
             "Themes",
@@ -411,6 +413,7 @@ public sealed class ThemeCatalogTests
         File.WriteAllText(hiddenTheme, "[Theme]\\nDisplayName=Hidden");
         File.WriteAllText(systemTheme, "[Theme]\\nDisplayName=System");
         File.SetAttributes(hiddenDirectory, File.GetAttributes(hiddenDirectory) | FileAttributes.Hidden);
+        File.SetAttributes(hiddenTheme, File.GetAttributes(hiddenTheme) | FileAttributes.Hidden);
         File.SetAttributes(systemTheme, File.GetAttributes(systemTheme) | FileAttributes.System);
 
         var paths = new WindowsThemeSearchPaths(
@@ -440,6 +443,11 @@ public sealed class ThemeCatalogTests
             if (File.Exists(systemTheme))
             {
                 File.SetAttributes(systemTheme, FileAttributes.Normal);
+            }
+
+            if (File.Exists(hiddenTheme))
+            {
+                File.SetAttributes(hiddenTheme, FileAttributes.Normal);
             }
 
             if (Directory.Exists(hiddenDirectory))
