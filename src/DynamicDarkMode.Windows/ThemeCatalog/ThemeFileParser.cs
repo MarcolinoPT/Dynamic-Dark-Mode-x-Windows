@@ -5,11 +5,13 @@ namespace DynamicDarkMode.Windows.ThemeCatalog;
 
 internal interface IIndirectStringResolver
 {
+    /// <summary>Resolves an indirect Windows resource reference to its localized display string.</summary>
     string? Resolve(string resourceReference);
 }
 
 internal sealed class WindowsIndirectStringResolver : IIndirectStringResolver
 {
+    /// <summary>Loads the localized string identified by an indirect Windows resource reference.</summary>
     public string? Resolve(string resourceReference)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceReference);
@@ -40,6 +42,9 @@ internal sealed class ThemeFileParser(IIndirectStringResolver indirectStringReso
     private readonly IIndirectStringResolver _indirectStringResolver =
         indirectStringResolver ?? throw new ArgumentNullException(nameof(indirectStringResolver));
 
+    /// <summary>Reads and parses a theme package from disk.</summary>
+    /// <param name="filePath">Absolute or relative path to the theme package.</param>
+    /// <returns>The parsed theme metadata.</returns>
     public ThemeFileMetadata Parse(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -48,6 +53,10 @@ internal sealed class ThemeFileParser(IIndirectStringResolver indirectStringReso
         return ParseContent(filePath: filePath, content: content);
     }
 
+    /// <summary>Parses theme metadata from the supplied file contents.</summary>
+    /// <param name="filePath">Path used as the theme package identity.</param>
+    /// <param name="content">Text contents in Windows theme-file format.</param>
+    /// <returns>The parsed theme metadata.</returns>
     internal ThemeFileMetadata ParseContent(string filePath, string content)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -63,8 +72,7 @@ internal sealed class ThemeFileParser(IIndirectStringResolver indirectStringReso
         string? visualStylePath = GetValue(sections, "VisualStyles", "Path");
         if (!string.IsNullOrWhiteSpace(visualStylePath))
         {
-            visualStylePath = Environment.ExpandEnvironmentVariables(visualStylePath);
-            visualStylePath = NormalizeOptionalPath(visualStylePath);
+            visualStylePath = ThemeVisualStylePath.Normalize(visualStylePath);
         }
 
         return new ThemeFileMetadata(
@@ -96,32 +104,6 @@ internal sealed class ThemeFileParser(IIndirectStringResolver indirectStringReso
 
     private static bool IsIndirectResource(string? value) =>
         value is not null && value.StartsWith('@');
-
-    private static string? NormalizeOptionalPath(string value)
-    {
-        string unquoted = Unquote(value);
-        if (string.IsNullOrWhiteSpace(unquoted))
-        {
-            return null;
-        }
-
-        if (!Path.IsPathRooted(unquoted))
-        {
-            return unquoted;
-        }
-
-        try
-        {
-            return Path.GetFullPath(unquoted);
-        }
-        catch (Exception exception) when (
-            exception is ArgumentException
-                or NotSupportedException
-                or PathTooLongException)
-        {
-            return unquoted;
-        }
-    }
 
     private static Dictionary<string, Dictionary<string, string>> ParseSections(string content)
     {
@@ -184,6 +166,90 @@ internal sealed class ThemeFileParser(IIndirectStringResolver indirectStringReso
                 || (value[0] == '\'' && value[^1] == '\'')))
         {
             return value[1..^1];
+        }
+
+        return value;
+    }
+}
+
+internal static class ThemeVisualStylePath
+{
+    /// <summary>Expands theme path variables and returns a canonical absolute VisualStyles path.</summary>
+    /// <param name="value">The path value read from a theme file or theme-manager entry.</param>
+    /// <returns>The normalized absolute path, or <see langword="null"/> when it cannot be resolved.</returns>
+    internal static string? Normalize(string? value) =>
+        Normalize(
+            value,
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            Environment.GetEnvironmentVariable);
+
+    /// <summary>Normalizes a VisualStyles path using the supplied Windows directory and environment lookup.</summary>
+    /// <param name="value">The path value to normalize.</param>
+    /// <param name="windowsDirectory">The Windows installation directory used for the ResourceDir fallback.</param>
+    /// <param name="getEnvironmentVariable">Environment-variable lookup used to honor an explicitly configured ResourceDir.</param>
+    /// <returns>The normalized absolute path, or <see langword="null"/> when it cannot be resolved.</returns>
+    internal static string? Normalize(
+        string? value,
+        string? windowsDirectory,
+        Func<string, string?> getEnvironmentVariable)
+    {
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string expanded = value.Trim().Trim('"');
+        if (expanded.Contains("%ResourceDir%", StringComparison.OrdinalIgnoreCase))
+        {
+            string? resourceDirectory = getEnvironmentVariable("ResourceDir");
+            if (string.IsNullOrWhiteSpace(resourceDirectory))
+            {
+                resourceDirectory = string.IsNullOrWhiteSpace(windowsDirectory)
+                    ? null
+                    : Path.Combine(windowsDirectory, "Resources");
+            }
+
+            if (string.IsNullOrWhiteSpace(resourceDirectory))
+            {
+                return null;
+            }
+
+            expanded = ReplaceResourceDirectoryToken(expanded, resourceDirectory);
+        }
+
+        expanded = Environment.ExpandEnvironmentVariables(expanded);
+        if (!Path.IsPathRooted(expanded))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Path.GetFullPath(expanded)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+        {
+            return null;
+        }
+    }
+
+    private static string ReplaceResourceDirectoryToken(string value, string resourceDirectory)
+    {
+        const string token = "%ResourceDir%";
+        int tokenIndex = value.IndexOf(token, StringComparison.OrdinalIgnoreCase);
+        while (tokenIndex >= 0)
+        {
+            value = string.Concat(
+                value.AsSpan(0, tokenIndex),
+                resourceDirectory,
+                value.AsSpan(tokenIndex + token.Length));
+            tokenIndex = value.IndexOf(token, tokenIndex + resourceDirectory.Length, StringComparison.OrdinalIgnoreCase);
         }
 
         return value;
