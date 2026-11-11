@@ -240,4 +240,5 @@ internal static class ThemeVisualStylePath
     }
 
     private static string ReplaceResourceDirectoryToken(string value, string resourceDirectory) =>
-        value.Replace("%ResourceDir%", resourceDirectory, StringComparison.OrdinalIgnoreCase);}
+        value.Replace("%ResourceDir%", resourceDirectory, StringComparison.OrdinalIgnoreCase);
+}
