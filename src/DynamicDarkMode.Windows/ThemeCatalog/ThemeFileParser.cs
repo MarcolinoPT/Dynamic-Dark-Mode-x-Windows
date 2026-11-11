@@ -239,21 +239,5 @@ internal static class ThemeVisualStylePath
         }
     }
 
-    private static string ReplaceResourceDirectoryToken(string value, string resourceDirectory)
-    {
-        const string token = "%ResourceDir%";
-        int tokenIndex = value.IndexOf(token, StringComparison.OrdinalIgnoreCase);
-        while (tokenIndex >= 0)
-        {
-            value = value[..tokenIndex]
-                + resourceDirectory
-                + value[(tokenIndex + token.Length)..];
-            tokenIndex = value.IndexOf(
-                token,
-                tokenIndex + resourceDirectory.Length,
-                StringComparison.OrdinalIgnoreCase);
-        }
-
-        return value;
-    }
-}
+    private static string ReplaceResourceDirectoryToken(string value, string resourceDirectory) =>
+        value.Replace("%ResourceDir%", resourceDirectory, StringComparison.OrdinalIgnoreCase);}
