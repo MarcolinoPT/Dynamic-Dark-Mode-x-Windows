@@ -15,6 +15,8 @@ internal sealed class WindowsThemeCatalog(
     private readonly IHighContrastStateProvider _highContrastStateProvider =
         highContrastStateProvider ?? throw new ArgumentNullException(nameof(highContrastStateProvider));
 
+    /// <summary>Discovers theme packages, correlates them with Windows, and captures accessibility state.</summary>
+    /// <returns>The discovered descriptors, High Contrast snapshot, and skipped-file count.</returns>
     public WindowsThemeCatalogResult Discover()
     {
         bool highContrastModeEnabled = _highContrastStateProvider.IsEnabled();
