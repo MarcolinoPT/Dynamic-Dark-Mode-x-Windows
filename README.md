@@ -64,6 +64,7 @@ Phases are sequential gates rather than dates. A phase is complete only when its
 - [Detailed roadmap](docs/roadmap.md)
 - [Ideas and future possibilities](docs/ideas.md)
 - [Architecture decision: project scope](docs/decisions/0001-project-scope.md)
+- [Windows theme catalog](docs/windows-theme-catalog.md)
 - [Contribution guidelines](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
