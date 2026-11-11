@@ -5,6 +5,11 @@ namespace DynamicDarkMode.Windows.ThemeCatalog;
 
 internal static class ThemeCatalogMatcher
 {
+    /// <summary>Correlates parsed theme packages with the current Windows theme-manager entries.</summary>
+    /// <param name="themeFiles">Parsed theme packages to correlate.</param>
+    /// <param name="managerEntries">Entries from the current theme-manager enumeration.</param>
+    /// <param name="isBuiltInTheme">Predicate identifying packages in the built-in Windows theme directory.</param>
+    /// <returns>Descriptors with stable file identities and explicit match statuses.</returns>
     public static IReadOnlyList<WindowsThemeDescriptor> Match(
         IReadOnlyList<ThemeFileMetadata> themeFiles,
         IReadOnlyList<ThemeManagerEntry> managerEntries,
@@ -139,6 +144,9 @@ internal static class ThemeCatalogMatcher
 
 internal static class ThemeIdentity
 {
+    /// <summary>Creates a versioned identity from a theme package's canonical absolute path.</summary>
+    /// <param name="themeFilePath">Path to the theme package.</param>
+    /// <returns>A <c>theme-file-v1:</c> identifier containing the SHA-256 path hash.</returns>
     public static string Create(string themeFilePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(themeFilePath);
