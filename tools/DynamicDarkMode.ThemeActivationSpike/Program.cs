@@ -185,20 +185,33 @@ internal static class Program
         manager.GetTheme(requestedIndex, out IWindowsTheme selectedTheme);
 
         string displayName;
+        string visualStyle1;
+        string visualStyle2;
         try
         {
             displayName = ReadProperty(() => selectedTheme.DisplayName);
+            visualStyle1 = ReadProperty(() => selectedTheme.VisualStyle1);
+            visualStyle2 = ReadProperty(() => selectedTheme.VisualStyle2);
         }
         finally
         {
             ReleaseComObject(selectedTheme);
         }
 
+        if (LooksLikeHighContrastTheme(displayName, visualStyle1, visualStyle2))
+        {
+            Console.Error.WriteLine(
+                $"Refusing to apply [{requestedIndex}] {displayName}: it appears to be a High Contrast theme.");
+            return 1;
+        }
+
         Console.WriteLine($"Current theme index: {previousIndex}");
         Console.WriteLine($"Requested theme: [{requestedIndex}] {displayName}");
+        Console.WriteLine($"VisualStyle1: {visualStyle1}");
+        Console.WriteLine($"VisualStyle2: {visualStyle2}");
         Console.WriteLine();
         Console.WriteLine("This changes the current Windows user's active theme.");
-        Console.WriteLine("Do not select a High Contrast theme. A heuristic warning is shown by the list command.");
+        Console.WriteLine("High Contrast entries identified by the current heuristic are blocked.");
         Console.Write("Type APPLY to continue: ");
 
         if (!string.Equals(Console.ReadLine(), "APPLY", StringComparison.Ordinal))
