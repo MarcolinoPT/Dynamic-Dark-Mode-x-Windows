@@ -5,6 +5,7 @@ namespace DynamicDarkMode.Windows.ThemeCatalog;
 
 internal interface IHighContrastStateProvider
 {
+    /// <summary>Reads whether High Contrast is currently enabled for the interactive user.</summary>
     bool IsEnabled();
 }
 
@@ -13,6 +14,8 @@ internal sealed class WindowsHighContrastStateProvider : IHighContrastStateProvi
     private const uint SpiGetHighContrast = 0x0042;
     private const uint HighContrastOn = 0x00000001;
 
+    /// <summary>Queries the Windows accessibility setting for the current High Contrast state.</summary>
+    /// <returns><see langword="true"/> when High Contrast is enabled.</returns>
     public bool IsEnabled()
     {
         var highContrast = new HighContrast
