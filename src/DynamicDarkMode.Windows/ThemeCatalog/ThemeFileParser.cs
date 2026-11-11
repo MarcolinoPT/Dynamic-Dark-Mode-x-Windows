@@ -245,11 +245,13 @@ internal static class ThemeVisualStylePath
         int tokenIndex = value.IndexOf(token, StringComparison.OrdinalIgnoreCase);
         while (tokenIndex >= 0)
         {
-            value = string.Concat(
-                value.AsSpan(0, tokenIndex),
-                resourceDirectory,
-                value.AsSpan(tokenIndex + token.Length));
-            tokenIndex = value.IndexOf(token, tokenIndex + resourceDirectory.Length, StringComparison.OrdinalIgnoreCase);
+            value = value[..tokenIndex]
+                + resourceDirectory
+                + value[(tokenIndex + token.Length)..];
+            tokenIndex = value.IndexOf(
+                token,
+                tokenIndex + resourceDirectory.Length,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         return value;
