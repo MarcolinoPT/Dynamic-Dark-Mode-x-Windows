@@ -4,6 +4,9 @@ namespace DynamicDarkMode.ThemeCatalogProbe;
 
 internal static class Program
 {
+    /// <summary>Runs the read-only theme catalog diagnostic command.</summary>
+    /// <param name="args">Command-line arguments; the supported command is <c>list</c>.</param>
+    /// <returns>Zero on success, or a nonzero exit code when the command cannot run.</returns>
     private static int Main(string[] args)
     {
         if (!OperatingSystem.IsWindows())
