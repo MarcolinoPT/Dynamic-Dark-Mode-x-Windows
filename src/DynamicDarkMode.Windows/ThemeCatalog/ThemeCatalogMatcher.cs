@@ -114,32 +114,7 @@ internal static class ThemeCatalogMatcher
 
     private static string NormalizeDisplayName(string value) => value.Trim();
 
-    private static string? NormalizePath(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string expanded = Environment.ExpandEnvironmentVariables(value.Trim().Trim('"'));
-        if (!Path.IsPathRooted(expanded))
-        {
-            return null;
-        }
-
-        try
-        {
-            return Path.GetFullPath(expanded)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch (Exception exception) when (
-            exception is ArgumentException
-                or NotSupportedException
-                or PathTooLongException)
-        {
-            return null;
-        }
-    }
+    private static string? NormalizePath(string? value) => ThemeVisualStylePath.Normalize(value);
 }
 
 internal static class ThemeIdentity
