@@ -68,8 +68,8 @@ public sealed class ThemeCatalogTests
         // Act
         ThemeFileMetadata metadata = parser.ParseContent(filePath, content);
         IReadOnlyList<WindowsThemeDescriptor> result = ThemeCatalogMatcher.Match(
-            [metadata],
-            [
+            themeFiles: [metadata],
+            managerEntries: [
                 new ThemeManagerEntry(
                     EnumerationIndex: 5,
                     DisplayName: "Resource directory theme",
@@ -77,7 +77,7 @@ public sealed class ThemeCatalogTests
                     ColorStyle: "NormalColor",
                     IsDisabled: false)
             ],
-            _ => false);
+            isBuiltInTheme: _ => false);
 
         // Assert
         metadata.VisualStylePath.ShouldBe(expectedStylePath);
@@ -108,6 +108,44 @@ public sealed class ThemeCatalogTests
             configuredResourceDirectory,
             "Themes",
             "Custom.msstyles")));
+    }
+
+    [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    public void VisualStylePathNormalizationFallsBackToWindowsResourcesWhenResourceDirIsUnset()
+    {
+        // Arrange
+        string windowsDirectory = Path.Combine(Path.GetTempPath(), "Explicit Windows");
+        const string value = "%ResourceDir%\Themes\Custom.msstyles";
+
+        // Act
+        string? result = ThemeVisualStylePath.Normalize(
+            value,
+            windowsDirectory: windowsDirectory,
+            getEnvironmentVariable: _ => null);
+
+        // Assert
+        result.ShouldBe(Path.GetFullPath(Path.Combine(
+            windowsDirectory,
+            "Resources",
+            "Themes",
+            "Custom.msstyles")));
+    }
+
+    [Theory]
+    [InlineData("Aero\\Aero.msstyles")]
+    [InlineData("C:Aero\\Aero.msstyles")]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    public void VisualStylePathNormalizationRejectsNonFullyQualifiedPaths(string value)
+    {
+        // Act
+        string? result = ThemeVisualStylePath.Normalize(
+            value,
+            windowsDirectory: null,
+            getEnvironmentVariable: _ => null);
+
+        // Assert
+        result.ShouldBeNull();
     }
 
     [Fact]

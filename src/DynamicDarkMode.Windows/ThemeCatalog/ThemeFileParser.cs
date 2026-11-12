@@ -220,7 +220,7 @@ internal static class ThemeVisualStylePath
         }
 
         expanded = Environment.ExpandEnvironmentVariables(expanded);
-        if (!Path.IsPathRooted(expanded))
+        if (!Path.IsPathFullyQualified(expanded))
         {
             return null;
         }
