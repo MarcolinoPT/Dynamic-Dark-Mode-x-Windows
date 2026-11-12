@@ -98,6 +98,6 @@ dotnet test DynamicDarkMode.Windows.sln --configuration Release --no-build
 - Use the repository PR template. Explain the problem, approach, issue links, scope, tests, and security/compatibility implications.
 - Triage all substantive review feedback, including AI-generated comments. Verify suggestions against code, tests, requirements, and project design; do not apply them blindly.
 - Address valid findings or explain clearly why they are not applicable. Include nitpicks when they affect correctness, maintainability, or the requested review scope.
-- Do not resolve AI reviewer threads yourself; the reviewer who opened a thread must resolve it. Reply to reviewer feedback when appropriate, then allow the reviewer to reassess and resolve the thread.
+- Do not resolve AI reviewer threads yourself, except that a human maintainer may resolve a rejected finding that requires no code change after recording the rejection rationale. For other threads, reply to reviewer feedback when appropriate, then allow the reviewer to reassess and resolve the thread.
 - Keep the PR description accurate as the branch evolves, including final CI results before requesting merge.
 - The human maintainer owns final decisions and merge approval.
