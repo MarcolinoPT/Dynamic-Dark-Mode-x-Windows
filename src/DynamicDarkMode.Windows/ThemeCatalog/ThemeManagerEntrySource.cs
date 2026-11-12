@@ -86,46 +86,53 @@ internal sealed class WindowsThemeManagerEntrySource : IThemeManagerEntrySource
             }
 
             manager.Init(ThemeManagerInitializationFlags.None);
-            manager.GetThemeCount(out int count);
-            if (count < 0 || count > 4096)
-            {
-                throw new InvalidDataException(
-                    $"Windows returned an implausible theme entry count: {count}.");
-            }
-
-            var entries = new List<ThemeManagerEntry>(capacity: count);
-            for (int index = 0; index < count; index++)
-            {
-                manager.GetTheme(index, out IWindowsThemeEntry theme);
-                if (theme is null)
-                {
-                    throw new InvalidDataException(
-                        $"Windows returned no theme metadata for entry {index}.");
-                }
-
-                try
-                {
-                    manager.IsThemeDisabled(index, out int disabled);
-                    entries.Add(new ThemeManagerEntry(
-                        EnumerationIndex: index,
-                        DisplayName: theme.DisplayName ?? string.Empty,
-                        VisualStylePath: theme.VisualStyle1 ?? string.Empty,
-                        ColorStyle: theme.VisualStyle2 ?? string.Empty,
-                        IsDisabled: disabled != 0));
-                }
-                finally
-                {
-                    ReleaseComObject(theme);
-                }
-            }
-
-            return entries;
+            return ReadEntries(manager);
         }
         finally
         {
             ReleaseComObject(manager);
             ThemeManagerNativeMethods.CoUninitialize();
         }
+    }
+
+    internal static IReadOnlyList<ThemeManagerEntry> ReadEntries(IThemeManager2 manager)
+    {
+        ArgumentNullException.ThrowIfNull(manager);
+
+        manager.GetThemeCount(out int count);
+        if (count < 0 || count > 4096)
+        {
+            throw new InvalidDataException(
+                $"Windows returned an implausible theme entry count: {count}.");
+        }
+
+        var entries = new List<ThemeManagerEntry>(capacity: count);
+        for (int index = 0; index < count; index++)
+        {
+            manager.GetTheme(index, out IWindowsThemeEntry theme);
+            if (theme is null)
+            {
+                throw new InvalidDataException(
+                    $"Windows returned no theme metadata for entry {index}.");
+            }
+
+            try
+            {
+                manager.IsThemeDisabled(index, out int disabled);
+                entries.Add(new ThemeManagerEntry(
+                    EnumerationIndex: index,
+                    DisplayName: theme.DisplayName ?? string.Empty,
+                    VisualStylePath: theme.VisualStyle1 ?? string.Empty,
+                    ColorStyle: theme.VisualStyle2 ?? string.Empty,
+                    IsDisabled: disabled != 0));
+            }
+            finally
+            {
+                ReleaseComObject(theme);
+            }
+        }
+
+        return entries;
     }
 
     private static void ReleaseComObject(object? value)
@@ -144,6 +151,31 @@ internal enum ThemeManagerInitializationFlags
     CurrentThemeOnly = 1 << 0,
     Unknown1 = 1 << 1,
     Unknown2 = 1 << 2
+}
+
+[Flags]
+internal enum ThemeApplyFlags
+{
+    None = 0,
+    IgnoreBackground = 1 << 0,
+    IgnoreCursor = 1 << 1,
+    IgnoreDesktopIcons = 1 << 2,
+    IgnoreColor = 1 << 3,
+    IgnoreSound = 1 << 4,
+    IgnoreScreensaver = 1 << 5,
+    UnknownWindowMetrics = 1 << 6,
+    Unknown2 = 1 << 7,
+    NoHourglass = 1 << 8
+}
+
+[Flags]
+internal enum ThemePackFlags
+{
+    None = 0,
+    Unknown1 = 1 << 0,
+    Unknown2 = 1 << 1,
+    Silent = 1 << 2,
+    Roamed = 1 << 3
 }
 
 [ComImport]
@@ -182,6 +214,13 @@ internal interface IThemeManager2
     void IsThemeDisabled(int index, out int disabled);
     /// <summary>Returns the current theme's transient enumeration position.</summary>
     void GetCurrentTheme(out int index);
+    /// <summary>Requests activation of the entry at the specified transient position.</summary>
+    void SetCurrentTheme(
+        IntPtr parentWindow,
+        int themeIndex,
+        int applyNow,
+        ThemeApplyFlags applyFlags,
+        ThemePackFlags packFlags);
 }
 
 internal static class ThemeManagerNativeMethods

@@ -40,7 +40,7 @@ The catalog enumerates COM entries on a dedicated STA thread. It correlates a pa
 
 The catalog does not persist the COM enumeration index. A unique match is represented as `Matched`; no match is `Unmatched`; multiple matching COM entries or multiple files resolving to one COM entry are `Ambiguous`; and a uniquely matched entry disabled by Windows is `Disabled`.
 
-Unmatched, ambiguous, disabled, or unresolved entries must not be silently substituted with another theme. A future activation adapter must re-enumerate and re-resolve the descriptor immediately before applying it.
+Unmatched, ambiguous, disabled, or unresolved entries must not be silently substituted with another theme. The separate [Windows theme activation adapter](windows-theme-activation.md) builds a fresh catalog from the same COM session it uses to apply and verify a theme; it never reuses an index from an earlier catalog result.
 
 ## High Contrast and accessibility
 
@@ -52,7 +52,7 @@ The catalog does not enable, disable, or modify accessibility settings.
 
 ## Scope and limitations
 
-- This is discovery and correlation only; it does not activate themes.
+- This catalog is discovery and correlation only; activation is implemented by the separate adapter described in [Windows theme activation](windows-theme-activation.md).
 - `IThemeManager2` remains undocumented and may change across Windows builds.
 - Theme packages without a resolved display name or a complete VisualStyles tuple remain visible as unmatched descriptors where parsing succeeds, but cannot be correlated safely.
 - The current search roots are the supported discovery locations for this slice; themes stored elsewhere are not discovered.
