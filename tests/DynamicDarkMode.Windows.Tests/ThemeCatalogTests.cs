@@ -116,7 +116,7 @@ public sealed class ThemeCatalogTests
     {
         // Arrange
         string windowsDirectory = Path.Combine(Path.GetTempPath(), "Explicit Windows");
-        const string value = "%ResourceDir%\Themes\Custom.msstyles";
+        const string value = "%ResourceDir%\\Themes\\Custom.msstyles";
 
         // Act
         string? result = ThemeVisualStylePath.Normalize(
