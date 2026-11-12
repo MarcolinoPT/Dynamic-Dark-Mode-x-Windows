@@ -32,4 +32,14 @@ The transient enumeration index is only a local value taken from the last enumer
 
 Automated tests inject a fake theme-manager session and STA execution context. They cover fresh ID resolution, changing transient indices, missing/disabled/ambiguous targets, High Contrast changes, COM HRESULTs, and post-activation verification results. They do not call Windows COM or change system settings.
 
-The production adapter's silent activation path has not yet been manually exercised on Windows. Before treating #60 as fully validated, run it on the supported Windows VM as a standard user, save a restorable theme, apply a known Light or Dark theme, confirm no Settings or Control Panel window appears, verify the selected theme and observable appearance, and restore the saved theme. Record the exact Windows build and results in the issue or PR.
+The production adapter's silent activation path can be exercised with the separate Windows-only activation probe. First list eligible themes, then use the stable ID for a theme different from the current theme:
+
+```powershell
+dotnet run --project tools/DynamicDarkMode.ThemeActivationProbe/DynamicDarkMode.ThemeActivationProbe.csproj -- list
+$themeId = 'theme-file-v1:PASTE_ID_FROM_LIST'
+dotnet run --project tools/DynamicDarkMode.ThemeActivationProbe/DynamicDarkMode.ThemeActivationProbe.csproj -- activate $themeId
+```
+
+The `activate` command captures the current theme only when it maps uniquely to an eligible catalog descriptor, requires the operator to type `APPLY`, invokes the production adapter, pauses for visual inspection, and restores the captured theme before exiting. Keep the console open until restoration reports `VerifiedSuccess`. The activation probe is separate from the read-only catalog probe; it does not launch Settings or Control Panel.
+
+Run the activation scenario on the supported Windows VM as a standard user. Confirm Windows reports the requested theme as current, verify the visible appearance changed, confirm no Settings or Control Panel window appeared, and confirm the original theme was restored. Record the Windows edition/version/build, account elevation status, and actual pass/fail results in the issue or PR before treating #60 as fully validated.

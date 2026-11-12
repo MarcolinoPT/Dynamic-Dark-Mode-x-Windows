@@ -291,6 +291,49 @@ public sealed class WindowsThemeActivationAdapterTests
             () => session.AppliedThemeIndex.ShouldBe(6));
     }
 
+    [Fact]
+    [Trait(TestTraits.Names.Category, TestTraits.Values.Windows)]
+    public async Task SerializesOverlappingActivationRequests()
+    {
+        // Arrange
+        var highContrastProvider = new SequenceHighContrastStateProvider(
+            false,
+            false,
+            false,
+            false);
+        using var fixture = new ThemeFixture(highContrastProvider);
+        WindowsThemeDescriptor requestedTheme = fixture.CreateDescriptor(
+            fixture.CreateManagerEntry(index: 2));
+        var staExecutionContext = new BlockingStaExecutionContext();
+        var sessionFactory = new MultipleThemeActivationSessionFactory(
+            createSession: () => new FakeThemeActivationSession(
+                entries: [fixture.CreateManagerEntry(index: 6)],
+                currentTheme: fixture.CreateOtherManagerEntry(index: 0)));
+        var applier = new WindowsThemeActivationAdapter(
+            catalog: fixture.Catalog,
+            highContrastStateProvider: highContrastProvider,
+            staExecutionContext: staExecutionContext,
+            sessionFactory: sessionFactory);
+
+        // Act
+        Task<ThemeApplyResult> firstRequest = applier.ApplyAsync(requestedTheme);
+        await staExecutionContext.FirstOperationEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task<ThemeApplyResult> secondRequest = applier.ApplyAsync(requestedTheme);
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
+        bool secondRequestEnteredBeforeFirstCompleted =
+            staExecutionContext.SecondOperationEntered.Task.IsCompleted;
+        staExecutionContext.ReleaseFirstOperation();
+        ThemeApplyResult[] results = await Task.WhenAll(firstRequest, secondRequest);
+
+        // Assert
+        results.ShouldSatisfyAllConditions(
+            () => results.Length.ShouldBe(2),
+            () => results.All(result => result.Status == ThemeApplyStatus.VerifiedSuccess).ShouldBeTrue(),
+            () => secondRequestEnteredBeforeFirstCompleted.ShouldBeFalse(),
+            () => staExecutionContext.MaximumConcurrentOperations.ShouldBe(1),
+            () => sessionFactory.CreateCount.ShouldBe(2));
+    }
+
     private sealed class ThemeFixture : IDisposable
     {
         private readonly string _root;
@@ -440,6 +483,85 @@ public sealed class WindowsThemeActivationAdapterTests
         IThemeActivationSession session) : IThemeActivationSessionFactory
     {
         public IThemeActivationSession Create() => session;
+    }
+
+    private sealed class MultipleThemeActivationSessionFactory(
+        Func<IThemeActivationSession> createSession) : IThemeActivationSessionFactory
+    {
+        private int _createCount;
+
+        public int CreateCount => _createCount;
+
+        public IThemeActivationSession Create()
+        {
+            Interlocked.Increment(ref _createCount);
+            return createSession();
+        }
+    }
+
+    private sealed class BlockingStaExecutionContext : IStaExecutionContext
+    {
+        private readonly ManualResetEventSlim _releaseFirstOperation = new(initialState: false);
+        private int _activeOperations;
+        private int _maximumConcurrentOperations;
+        private int _operationCount;
+
+        public TaskCompletionSource FirstOperationEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource SecondOperationEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int MaximumConcurrentOperations => _maximumConcurrentOperations;
+
+        public void ReleaseFirstOperation() => _releaseFirstOperation.Set();
+
+        public T Run<T>(Func<T> operation)
+        {
+            int operationNumber = Interlocked.Increment(ref _operationCount);
+            int activeOperations = Interlocked.Increment(ref _activeOperations);
+            UpdateMaximumConcurrentOperations(activeOperations);
+
+            try
+            {
+                if (operationNumber == 1)
+                {
+                    FirstOperationEntered.TrySetResult();
+                    if (!_releaseFirstOperation.Wait(TimeSpan.FromSeconds(10)))
+                    {
+                        throw new TimeoutException("The first activation operation was not released.");
+                    }
+                }
+                else if (operationNumber == 2)
+                {
+                    SecondOperationEntered.TrySetResult();
+                }
+
+                return operation();
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeOperations);
+            }
+        }
+
+        private void UpdateMaximumConcurrentOperations(int value)
+        {
+            int currentMaximum = _maximumConcurrentOperations;
+            while (value > currentMaximum)
+            {
+                int observedMaximum = Interlocked.CompareExchange(
+                    ref _maximumConcurrentOperations,
+                    value,
+                    currentMaximum);
+                if (observedMaximum == currentMaximum)
+                {
+                    return;
+                }
+
+                currentMaximum = observedMaximum;
+            }
+        }
     }
 
     private sealed class InlineStaExecutionContext : IStaExecutionContext

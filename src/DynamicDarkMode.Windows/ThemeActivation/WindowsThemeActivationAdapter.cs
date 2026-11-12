@@ -30,6 +30,7 @@ internal sealed class WindowsThemeActivationAdapter(
     IStaExecutionContext staExecutionContext,
     IThemeActivationSessionFactory sessionFactory) : IWindowsThemeApplier
 {
+    private readonly SemaphoreSlim _activationGate = new(initialCount: 1, maxCount: 1);
     private readonly WindowsThemeCatalog _catalog =
         catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IHighContrastStateProvider _highContrastStateProvider =
@@ -39,14 +40,24 @@ internal sealed class WindowsThemeActivationAdapter(
     private readonly IThemeActivationSessionFactory _sessionFactory =
         sessionFactory ?? throw new ArgumentNullException(nameof(sessionFactory));
 
-    public Task<ThemeApplyResult> ApplyAsync(
+    public async Task<ThemeApplyResult> ApplyAsync(
         WindowsThemeDescriptor requestedTheme,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(requestedTheme);
-        return Task.Run(
-            function: () => ApplyOnSta(requestedTheme, cancellationToken),
-            cancellationToken: cancellationToken);
+
+        await _activationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(
+                    function: () => ApplyOnSta(requestedTheme, cancellationToken),
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _activationGate.Release();
+        }
     }
 
     private ThemeApplyResult ApplyOnSta(
