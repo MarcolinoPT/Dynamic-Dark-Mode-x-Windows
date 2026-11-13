@@ -128,43 +128,80 @@ internal static class Program
             IWindowsThemeApplier applier = WindowsThemeActivationAdapterFactory.CreateDefault();
             ThemeApplyResult? activationResult = null;
             ThemeApplyResult? restorationResult = null;
+            using var inspectionWaitCancellation = new CancellationTokenSource();
+            var inspectionWaitCompleted = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
+            {
+                eventArgs.Cancel = true;
+                inspectionWaitCompleted.TrySetResult(result: true);
+                inspectionWaitCancellation.Cancel();
+            };
 
+            Console.CancelKeyPress += cancelHandler;
             try
-            {
-                activationResult = await applier.ApplyAsync(requestedTheme);
-                WriteResult("Activation", activationResult);
-                if (activationResult.ApiAccepted)
-                {
-                    Console.WriteLine(
-                        "Check that appearance changed and no Settings or Control Panel window opened. Press Enter to restore.");
-                    Console.ReadLine();
-                }
-            }
-            catch (Exception exception)
-            {
-                Console.Error.WriteLine(
-                    $"Activation raised {exception.GetType().Name} (HRESULT 0x{exception.HResult:X8}).");
-            }
-            finally
             {
                 try
                 {
-                    restorationResult = await applier.ApplyAsync(
-                        requestedTheme: currentTheme,
-                        cancellationToken: CancellationToken.None);
-                    WriteResult("Restoration", restorationResult);
+                    activationResult = await applier.ApplyAsync(requestedTheme);
+                    WriteResult("Activation", activationResult);
+                    if (activationResult.ApiAccepted
+                        && !inspectionWaitCompleted.Task.IsCompleted)
+                    {
+                        Console.WriteLine(
+                            "Check that appearance changed and no Settings or Control Panel window opened. Press Enter or Ctrl+C to restore.");
+                        Task<string?> inspectionInputTask = Console.In.ReadLineAsync(
+                                inspectionWaitCancellation.Token)
+                            .AsTask();
+                        Task completedTask = await Task.WhenAny(
+                            inspectionInputTask,
+                            inspectionWaitCompleted.Task);
+                        if (completedTask == inspectionInputTask)
+                        {
+                            try
+                            {
+                                _ = await inspectionInputTask;
+                            }
+                            catch (OperationCanceledException) when (inspectionWaitCancellation.IsCancellationRequested)
+                            {
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Ctrl+C received. Restoring the previous theme.");
+                        }
+                    }
                 }
                 catch (Exception exception)
                 {
                     Console.Error.WriteLine(
-                        $"Restoration raised {exception.GetType().Name} (HRESULT 0x{exception.HResult:X8}).");
+                        $"Activation raised {exception.GetType().Name} (HRESULT 0x{exception.HResult:X8}).");
                 }
-            }
+                finally
+                {
+                    try
+                    {
+                        restorationResult = await applier.ApplyAsync(
+                            requestedTheme: currentTheme,
+                            cancellationToken: CancellationToken.None);
+                        WriteResult("Restoration", restorationResult);
+                    }
+                    catch (Exception exception)
+                    {
+                        Console.Error.WriteLine(
+                            $"Restoration raised {exception.GetType().Name} (HRESULT 0x{exception.HResult:X8}).");
+                    }
+                }
 
-            return activationResult?.Status == ThemeApplyStatus.VerifiedSuccess
-                && restorationResult?.Status == ThemeApplyStatus.VerifiedSuccess
-                    ? 0
-                    : 1;
+                return activationResult?.Status == ThemeApplyStatus.VerifiedSuccess
+                    && restorationResult?.Status == ThemeApplyStatus.VerifiedSuccess
+                        ? 0
+                        : 1;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+            }
         }
         catch (Exception exception)
         {
