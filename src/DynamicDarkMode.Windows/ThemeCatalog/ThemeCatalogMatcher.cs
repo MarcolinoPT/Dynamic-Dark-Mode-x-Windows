@@ -5,6 +5,40 @@ namespace DynamicDarkMode.Windows.ThemeCatalog;
 
 internal static class ThemeCatalogMatcher
 {
+    internal static bool Matches(
+        WindowsThemeDescriptor descriptor,
+        ThemeManagerEntry managerEntry)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(managerEntry);
+
+        if (!descriptor.IsDisplayNameResolved
+            || descriptor.UnresolvedDisplayNameResource is not null
+            || string.IsNullOrWhiteSpace(descriptor.DisplayName)
+            || string.IsNullOrWhiteSpace(descriptor.VisualStylePath)
+            || string.IsNullOrWhiteSpace(descriptor.ColorStyle))
+        {
+            return false;
+        }
+
+        string? descriptorVisualStylePath = NormalizePath(descriptor.VisualStylePath);
+        string? managerVisualStylePath = NormalizePath(managerEntry.VisualStylePath);
+        return descriptorVisualStylePath is not null
+            && managerVisualStylePath is not null
+            && string.Equals(
+                NormalizeDisplayName(descriptor.DisplayName),
+                NormalizeDisplayName(managerEntry.DisplayName),
+                StringComparison.OrdinalIgnoreCase)
+            && string.Equals(
+                descriptorVisualStylePath,
+                managerVisualStylePath,
+                StringComparison.OrdinalIgnoreCase)
+            && string.Equals(
+                descriptor.ColorStyle.Trim(),
+                managerEntry.ColorStyle.Trim(),
+                StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Correlates parsed theme packages with the current Windows theme-manager entries.</summary>
     /// <param name="themeFiles">Parsed theme packages to correlate.</param>
     /// <param name="managerEntries">Entries from the current theme-manager enumeration.</param>

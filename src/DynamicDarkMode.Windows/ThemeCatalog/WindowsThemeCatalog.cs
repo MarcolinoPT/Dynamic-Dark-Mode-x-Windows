@@ -17,10 +17,18 @@ internal sealed class WindowsThemeCatalog(
 
     /// <summary>Discovers theme packages, correlates them with Windows, and captures accessibility state.</summary>
     /// <returns>The discovered descriptors, High Contrast snapshot, and skipped-file count.</returns>
-    public WindowsThemeCatalogResult Discover()
+    public WindowsThemeCatalogResult Discover() =>
+        Discover(managerEntries: _managerEntrySource.GetEntries());
+
+    /// <summary>Builds a fresh catalog from entries already enumerated by the current COM session.</summary>
+    /// <param name="managerEntries">Current entries from the theme-manager session.</param>
+    /// <returns>The discovered descriptors, High Contrast snapshot, and skipped-file count.</returns>
+    internal WindowsThemeCatalogResult Discover(IReadOnlyList<ThemeManagerEntry> managerEntries)
     {
+        ArgumentNullException.ThrowIfNull(managerEntries);
+
         bool highContrastModeEnabled = _highContrastStateProvider.IsEnabled();
-        IReadOnlyList<ThemeManagerEntry> managerEntries = _managerEntrySource.GetEntries()
+        IReadOnlyList<ThemeManagerEntry> eligibleManagerEntries = managerEntries
             .Where(entry => !IsHighContrastVisualStyle(entry.VisualStylePath))
             .ToArray();
 
@@ -52,7 +60,7 @@ internal sealed class WindowsThemeCatalog(
 
         IReadOnlyList<WindowsThemeDescriptor> descriptors = ThemeCatalogMatcher.Match(
             themeFiles: parsedThemeFiles,
-            managerEntries: managerEntries,
+            managerEntries: eligibleManagerEntries,
             isBuiltInTheme: _fileDiscovery.IsBuiltInTheme);
 
         return new WindowsThemeCatalogResult(
