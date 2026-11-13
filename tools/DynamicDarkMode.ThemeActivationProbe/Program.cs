@@ -128,14 +128,12 @@ internal static class Program
             IWindowsThemeApplier applier = WindowsThemeActivationAdapterFactory.CreateDefault();
             ThemeApplyResult? activationResult = null;
             ThemeApplyResult? restorationResult = null;
-            using var inspectionWaitCancellation = new CancellationTokenSource();
             var inspectionWaitCompleted = new TaskCompletionSource<bool>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
             {
                 eventArgs.Cancel = true;
                 inspectionWaitCompleted.TrySetResult(result: true);
-                inspectionWaitCancellation.Cancel();
             };
 
             Console.CancelKeyPress += cancelHandler;
@@ -150,21 +148,14 @@ internal static class Program
                     {
                         Console.WriteLine(
                             "Check that appearance changed and no Settings or Control Panel window opened. Press Enter or Ctrl+C to restore.");
-                        Task<string?> inspectionInputTask = Console.In.ReadLineAsync(
-                                inspectionWaitCancellation.Token)
-                            .AsTask();
+                        // Console.In's async line read may block synchronously, so run it off this thread.
+                        Task<string?> inspectionInputTask = Task.Run(() => Console.ReadLine());
                         Task completedTask = await Task.WhenAny(
                             inspectionInputTask,
                             inspectionWaitCompleted.Task);
                         if (completedTask == inspectionInputTask)
                         {
-                            try
-                            {
-                                _ = await inspectionInputTask;
-                            }
-                            catch (OperationCanceledException) when (inspectionWaitCancellation.IsCancellationRequested)
-                            {
-                            }
+                            _ = await inspectionInputTask;
                         }
                         else
                         {
